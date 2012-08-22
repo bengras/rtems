@@ -1,0 +1,21 @@
+ . run testsuite
+ . test reset xm and clock xm
+ . waf compatability
+
+verified:
+ . printk, printf, interrupt uart, timer (+nsec), clocks
+ . different Hz
+ . warnings
+ . timer wraparound is ok
+ . reset bbone
+ . i turn caches and mmu on
+ . works when booted with and without mmu on (cache off/on in uboot)
+ . needed vbar; used standard arm_cp15_set_vector_base_address
+ . minimize irq.h
+ . coding conventions, spacing
+ . doxygen
+
+open:
+ . how to handle the interrupt?
+ . uboot env
+ . minimize Makefile.am
