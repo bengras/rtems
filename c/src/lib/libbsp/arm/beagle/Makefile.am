@@ -39,6 +39,7 @@ include_bsp_HEADERS += ../shared/include/arm-release-id.h
 include_bsp_HEADERS += ../shared/include/start.h
 include_bsp_HEADERS += include/irq.h
 include_bsp_HEADERS += include/i2c.h
+include_bsp_HEADERS += include/gpio.h
 
 include_libcpu_HEADERS =
 include_libcpu_HEADERS += ../../../libcpu/arm/shared/include/arm-cp15.h
@@ -110,6 +111,9 @@ libbsp_a_SOURCES += ../../shared/console.c \
         ../../shared/console_read.c \
         ../../shared/console_write.c \
         ../../shared/console_control.c
+
+# GPIO
+libbsp_a_SOURCES += gpio/gpio.c
 
 # I2C
 libbsp_a_SOURCES += misc/i2c.c

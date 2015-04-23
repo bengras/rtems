@@ -110,6 +110,10 @@ $(PROJECT_INCLUDE)/bsp/i2c.h: include/i2c.h $(PROJECT_INCLUDE)/bsp/$(dirstamp)
 	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/bsp/i2c.h
 PREINSTALL_FILES += $(PROJECT_INCLUDE)/bsp/i2c.h
 
+$(PROJECT_INCLUDE)/bsp/gpio.h: include/gpio.h $(PROJECT_INCLUDE)/bsp/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/bsp/gpio.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/bsp/gpio.h
+
 $(PROJECT_INCLUDE)/libcpu/arm-cp15.h: ../../../libcpu/arm/shared/include/arm-cp15.h $(PROJECT_INCLUDE)/libcpu/$(dirstamp)
 	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/libcpu/arm-cp15.h
 PREINSTALL_FILES += $(PROJECT_INCLUDE)/libcpu/arm-cp15.h
