@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static void delay_sec(int sec)
+{
+ rtems_task_wake_after(sec*rtems_clock_get_ticks_per_second());
+}
 /* forward declarations to avoid warnings */
 rtems_task Init(rtems_task_argument argument);
 
@@ -35,6 +39,7 @@ rtems_task Init(
   gpio_select_pin(USR1, DIGITAL_OUTPUT);
   gpio_select_pin(USR2, DIGITAL_OUTPUT);
   gpio_select_pin(USR3, DIGITAL_OUTPUT);
+
   printf("Clearing all USR LEDs \n");
   gpio_clear(USR0);
   gpio_clear(USR1);
@@ -43,22 +48,38 @@ rtems_task Init(
 
   /*Generation of USR LED pattern*/
   gpio_set(USR0);
-  arm_delay(0.5);
+  delay_sec(1);
   gpio_set(USR1);
-  arm_delay(0.5);
+  delay_sec(1);
   gpio_set(USR2);
-  arm_delay(0.5);
+  delay_sec(1);
   gpio_set(USR3);
-  arm_delay(0.5);
+  delay_sec(1);
   gpio_clear(USR3);
-  arm_delay(1);
+  delay_sec(1);
   gpio_clear(USR2);
-  arm_delay(1);
+  delay_sec(1);
   gpio_clear(USR1);
-  arm_delay(1);
+  delay_sec(1);
   gpio_clear(USR0);
-  arm_delay(1);
+  delay_sec(1);
 
+  gpio_select_pin(P8_13,DIGITAL_OUTPUT);
+  gpio_select_pin(P8_09,DIGITAL_OUTPUT);
+  gpio_select_pin(P9_30,DIGITAL_OUTPUT);
+
+  gpio_set(P8_13);
+  delay_sec(1);
+  gpio_set(P8_09);
+  delay_sec(1);
+  gpio_set(P9_30);
+  delay_sec(1);
+  gpio_clear(P8_13);
+  delay_sec(1);
+  gpio_clear(P8_09);
+  delay_sec(2);
+  gpio_clear(P9_30);
+  delay_sec(1); 
   printf("Gpio Test Completed\n");
   rtems_test_end();
   exit( 0 );

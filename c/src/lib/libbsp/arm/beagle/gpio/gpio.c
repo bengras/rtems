@@ -27,19 +27,31 @@ static bool is_initialized = false;
 
 static bbb_gpio_pin gpio_pin[GPIO_PIN_COUNT];
  
-static uint32_t inline get_pin_addr(GPIO_PIN pin)
+static uintptr_t inline get_pin_addr(GPIO_PIN pin)
 {
-  return (pin.gpio_bank + pin.gpio_bank_pin/8);
+ return (pin.gpio_bank + pin.gpio_bank_pin/8);
 }
 
-static uint8_t inline get_pin_mask(GPIO_PIN pin)
+static char inline get_pin_mask(GPIO_PIN pin, bool value)
 {
+ if(value) 
   return (1 << pin.gpio_bank_pin%8);
+ else
+  return (0 << pin.gpio_bank_pin%8);
 }
 
-void arm_delay(float sec)
+static void inline reg_update_or(GPIO_PIN pin,uint32_t address,bool type)
 {
-  rtems_task_wake_after(sec*rtems_clock_get_ticks_per_second());
+ uint8_t gpiobyte=readb(get_pin_addr(pin)+address);
+ gpiobyte |= get_pin_mask(pin,type);
+ writeb(gpiobyte,get_pin_addr(pin)+address);
+}
+
+static void inline reg_update_and(GPIO_PIN pin,uint32_t address,bool type)
+{
+ uint8_t gpiobyte=readb(get_pin_addr(pin)+address);
+ gpiobyte &= get_pin_mask(pin,type);
+ writeb(gpiobyte,get_pin_addr(pin)+address);
 }
 
 /**
@@ -49,14 +61,14 @@ void arm_delay(float sec)
  */
 void gpio_initialize(void)
 { 
-   int i;
-   if ( is_initialized )
-    return;
+ int i;
+ if ( is_initialized )
+   return;
  
-  is_initialized = true;
-      for ( i = 0; i < GPIO_PIN_COUNT; i++ ) {
-    gpio_pin[i].pin_type = NOT_USED;
-  }
+ is_initialized = true;
+ for ( i = 0; i < GPIO_PIN_COUNT; i++ ) {
+   gpio_pin[i].pin_type = NOT_USED;
+ }
 }
 
 /**
@@ -68,23 +80,23 @@ void gpio_initialize(void)
  int gpio_select_pin(GPIO_PIN pin, bbb_pin type)
 {
  
-  if (gpio_pin[pin.gpio_id].pin_type != NOT_USED)
-      return -1;
-  gpio_pin[pin.gpio_id].pin_type = type;
+ if (gpio_pin[pin.gpio_id].pin_type != NOT_USED)
+   return -1;
+ gpio_pin[pin.gpio_id].pin_type = type;
 
-  switch(type){
+ switch(type){
     
-    case DIGITAL_OUTPUT:
+   case DIGITAL_OUTPUT:
 
-      writeb(0,get_pin_addr(pin) + AM335X_GPIO_OE);
+     reg_update_or(pin,AM335X_GPIO_OE,false);
 
-      break;
+     break;
 
-    default:
+   default:
 
-      return -1;
+     return -1;
   }
-  return 0;
+ return 0;
 }
 
 /**
@@ -94,14 +106,12 @@ void gpio_initialize(void)
  */
 int gpio_set(GPIO_PIN pin)
 {
-  if (gpio_pin[pin.gpio_id-1].pin_type != DIGITAL_OUTPUT)
-    return -1;
+ if (gpio_pin[pin.gpio_id-1].pin_type != DIGITAL_OUTPUT)
+   return -1;
+ 
+ reg_update_or(pin,AM335X_GPIO_SETDATAOUT,true);
   
-  uint8_t gpiobyte = readb(get_pin_addr(pin) + AM335X_GPIO_SETDATAOUT);
-           gpiobyte |= get_pin_mask(pin);
-  writeb(gpiobyte, get_pin_addr(pin) + AM335X_GPIO_SETDATAOUT);
-  
-  return 0;
+ return 0;
 }
 
 /**
@@ -111,12 +121,10 @@ int gpio_set(GPIO_PIN pin)
  */
 int gpio_clear(GPIO_PIN pin)
 {
-  if (gpio_pin[pin.gpio_id-1].pin_type != DIGITAL_OUTPUT)
-      return -1;
+ if (gpio_pin[pin.gpio_id-1].pin_type != DIGITAL_OUTPUT)
+   return -1;
+ 
+ reg_update_and(pin,AM335X_GPIO_CLEARDATAOUT,true);
   
-  uint8_t gpiobyte = readb(get_pin_addr(pin) + AM335X_GPIO_CLEARDATAOUT);
-           gpiobyte &= get_pin_mask(pin);
-  writeb(gpiobyte, get_pin_addr(pin) + AM335X_GPIO_CLEARDATAOUT);
-  
-  return 0;
+ return 0;
 }
