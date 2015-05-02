@@ -18,6 +18,7 @@
 #define LIBBSP_ARM_BEAGLE_GPIO_H
  
 #include <rtems.h>
+#include <assert.h>
 #include <libcpu/am335x.h>
  
 #ifdef __cplusplus

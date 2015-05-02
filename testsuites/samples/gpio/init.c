@@ -11,6 +11,10 @@
 #include "config.h"
 #endif
 
+#define Gpio_clear(arg) { printf("%s off\n", #arg); gpio_clear(arg); }
+#define Gpio_set(arg) { printf("%s on\n", #arg); gpio_set(arg); }
+#define Gpio_select_pin(pin, how) { printf("configure %s to %s\n", #pin, #how); gpio_select_pin(pin, how); }
+
 #include <rtems/test.h>
 #include <bsp/gpio.h> /* Calls the BSP gpio library */
 #include <rtems/status-checks.h>
@@ -35,50 +39,50 @@ rtems_task Init(
     /* Initializes the GPIO API */
   gpio_initialize();
 
-  gpio_select_pin(USR0, DIGITAL_OUTPUT);
-  gpio_select_pin(USR1, DIGITAL_OUTPUT);
-  gpio_select_pin(USR2, DIGITAL_OUTPUT);
-  gpio_select_pin(USR3, DIGITAL_OUTPUT);
+  Gpio_select_pin(USR0, DIGITAL_OUTPUT);
+  Gpio_select_pin(USR1, DIGITAL_OUTPUT);
+  Gpio_select_pin(USR2, DIGITAL_OUTPUT);
+  Gpio_select_pin(USR3, DIGITAL_OUTPUT);
 
   printf("Clearing all USR LEDs \n");
-  gpio_clear(USR0);
-  gpio_clear(USR1);
-  gpio_clear(USR2);
-  gpio_clear(USR3); 
+  Gpio_clear(USR0);
+  Gpio_clear(USR1);
+  Gpio_clear(USR2);
+  Gpio_clear(USR3); 
 
   /*Generation of USR LED pattern*/
-  gpio_set(USR0);
+  Gpio_set(USR0);
   delay_sec(1);
-  gpio_set(USR1);
+  Gpio_set(USR1);
   delay_sec(1);
-  gpio_set(USR2);
+  Gpio_set(USR2);
   delay_sec(1);
-  gpio_set(USR3);
+  Gpio_set(USR3);
   delay_sec(1);
-  gpio_clear(USR3);
+  Gpio_clear(USR3);
   delay_sec(1);
-  gpio_clear(USR2);
+  Gpio_clear(USR2);
   delay_sec(1);
-  gpio_clear(USR1);
+  Gpio_clear(USR1);
   delay_sec(1);
-  gpio_clear(USR0);
+  Gpio_clear(USR0);
   delay_sec(1);
 
-  gpio_select_pin(P8_13,DIGITAL_OUTPUT);
-  gpio_select_pin(P8_09,DIGITAL_OUTPUT);
-  gpio_select_pin(P9_30,DIGITAL_OUTPUT);
+  Gpio_select_pin(P8_13,DIGITAL_OUTPUT);
+  Gpio_select_pin(P8_09,DIGITAL_OUTPUT);
+  Gpio_select_pin(P9_30,DIGITAL_OUTPUT);
 
-  gpio_set(P8_13);
+  Gpio_set(P8_13);
   delay_sec(1);
-  gpio_set(P8_09);
+  Gpio_set(P8_09);
   delay_sec(1);
-  gpio_set(P9_30);
+  Gpio_set(P9_30);
   delay_sec(1);
-  gpio_clear(P8_13);
+  Gpio_clear(P8_13);
   delay_sec(1);
-  gpio_clear(P8_09);
+  Gpio_clear(P8_09);
   delay_sec(2);
-  gpio_clear(P9_30);
+  Gpio_clear(P9_30);
   delay_sec(1); 
   printf("Gpio Test Completed\n");
   rtems_test_end();
