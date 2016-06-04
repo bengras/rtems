@@ -1053,6 +1053,8 @@ extern void EHRPWMClockDisable(unsigned int baseAdd);
 extern unsigned int EHRPWMClockEnableStatusGet(unsigned int baseAdd);
 extern unsigned int EHRPWMClockDisableStatusGet(unsigned int baseAdd);
 
+/*Added custom pinmux function to enable pwm pins*/
+extern void EPWMPinMuxSetup(void);
 
 /** @} */
 

@@ -10209,3 +10209,22 @@
 #define CM_PER_CLK_24MHZ_CLKSTCTRL_CLKTRCTRL_SW_SLEEP   (0x1u)
 #define CM_PER_CLK_24MHZ_CLKSTCTRL_CLKTRCTRL_SW_WKUP   (0x2u)
 
+/** @brief Base addresses of PWMSS memory mapped registers.                   */
+
+#define SOC_PWMSS0_REGS                     (0x48300000)
+#define SOC_PWMSS1_REGS                     (0x48302000)
+#define SOC_PWMSS2_REGS                     (0x48304000)
+#define SOC_ECAP_REGS                       (0x00000100)
+#define SOC_EQEP_REGS                       (0x00000180)
+#define SOC_EPWM_REGS                       (0x00000200)
+#define SOC_ECAP_0_REGS                     (SOC_PWMSS0_REGS + SOC_ECAP_REGS)
+#define SOC_ECAP_1_REGS                     (SOC_PWMSS1_REGS + SOC_ECAP_REGS)
+#define SOC_ECAP_2_REGS                     (SOC_PWMSS2_REGS + SOC_ECAP_REGS)
+
+#define SOC_EQEP_0_REGS                     (SOC_PWMSS0_REGS + SOC_EQEP_REGS)
+#define SOC_EQEP_1_REGS                     (SOC_PWMSS1_REGS + SOC_EQEP_REGS)
+#define SOC_EQEP_2_REGS                     (SOC_PWMSS2_REGS + SOC_EQEP_REGS) 
+
+#define SOC_EPWM_0_REGS                     (SOC_PWMSS0_REGS + SOC_EPWM_REGS)
+#define SOC_EPWM_1_REGS                     (SOC_PWMSS1_REGS + SOC_EPWM_REGS)
+#define SOC_EPWM_2_REGS                     (SOC_PWMSS2_REGS + SOC_EPWM_REGS)
