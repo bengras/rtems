@@ -19,10 +19,15 @@ const char rtems_test_name[] = "Punit PWM test GSOC 2016";
 static void configure(void);
 rtems_task Init(rtems_task_argument argument);
 
+rtems_printer rtems_test_printer;
+
+
 rtems_task Init(
 	rtems_task_argument ignored
 )
 {
+        rtems_print_printer_printf(&rtems_test_printer);
+
 	rtems_test_begin();
 	printf("Starting PWM Testing");
 
