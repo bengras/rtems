@@ -18,23 +18,12 @@
 #include "config.h"
 #endif
 
-#include <stdarg.h>
-
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
 #include <semaphore.h>
-#include <limits.h>
 
-#include <rtems/system.h>
-#include <rtems/score/threadimpl.h>
 #include <rtems/posix/semaphoreimpl.h>
-#include <rtems/seterr.h>
+#include <rtems/posix/posixapi.h>
 
-THREAD_WAIT_QUEUE_OBJECT_ASSERT(
-  POSIX_Semaphore_Control,
-  Semaphore.Wait_queue
-);
+THREAD_QUEUE_OBJECT_ASSERT( POSIX_Semaphore_Control, Semaphore.Wait_queue );
 
 int _POSIX_Semaphore_Wait_support(
   sem_t             *sem,
@@ -43,43 +32,22 @@ int _POSIX_Semaphore_Wait_support(
 )
 {
   POSIX_Semaphore_Control *the_semaphore;
-  Objects_Locations        location;
-  Thread_Control          *executing;
-  ISR_lock_Context         lock_context;
+  Thread_queue_Context     queue_context;
+  Status_Control           status;
 
-  the_semaphore = _POSIX_Semaphore_Get_interrupt_disable(
-    sem,
-    &location,
-    &lock_context
-  );
-  switch ( location ) {
+  the_semaphore = _POSIX_Semaphore_Get( sem, &queue_context );
 
-    case OBJECTS_LOCAL:
-      executing = _Thread_Executing;
-      _CORE_semaphore_Seize(
-        &the_semaphore->Semaphore,
-        executing,
-        the_semaphore->Object.id,
-        blocking,
-        timeout,
-        &lock_context
-      );
-
-      if ( !executing->Wait.return_code )
-        return 0;
-
-      rtems_set_errno_and_return_minus_one(
-        _POSIX_Semaphore_Translate_core_semaphore_return_code(
-          executing->Wait.return_code
-        )
-      );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
-      break;
+  if ( the_semaphore == NULL ) {
+    rtems_set_errno_and_return_minus_one( EINVAL );
   }
 
-  rtems_set_errno_and_return_minus_one( EINVAL );
+  status = _CORE_semaphore_Seize(
+    &the_semaphore->Semaphore,
+    POSIX_SEMAPHORE_TQ_OPERATIONS,
+    _Thread_Executing,
+    blocking,
+    timeout,
+    &queue_context
+  );
+  return _POSIX_Zero_or_minus_one_plus_errno( status );
 }

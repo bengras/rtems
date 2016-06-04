@@ -38,25 +38,6 @@ extern "C" {
  */
 /*{*/
 
-/**
- *  The following enumerated type defines the list of
- *  remote signal operations.
- */
-typedef enum {
-  SIGNAL_MP_SEND_REQUEST  = 0,
-  SIGNAL_MP_SEND_RESPONSE = 1
-}   Signal_MP_Remote_operations;
-
-/**
- *  The following data structure defines the packet used to perform
- *  remote signal operations.
- */
-typedef struct {
-  rtems_packet_prefix          Prefix;
-  Signal_MP_Remote_operations  operation;
-  rtems_signal_set             signal_in;
-}   Signal_MP_Packet;
-
 /*
  *  @brief Signal_MP_Send_process_packet
  *
@@ -68,26 +49,11 @@ typedef struct {
  */
 
 /**
- *  @brief Signal MP Send Request Packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive operation can be initiated on another node.
+ * @brief Issues a remote rtems_signal_send() request.
  */
-rtems_status_code _Signal_MP_Send_request_packet (
-  Signal_MP_Remote_operations operation,
-  Objects_Id                  task_id,
-  rtems_signal_set            signal_in
-);
-
-/**
- *  @brief Signal MP Send Response Packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive can be performed on another node.
- */
-void _Signal_MP_Send_response_packet (
-  Signal_MP_Remote_operations  operation,
-  Thread_Control              *the_thread
+rtems_status_code _Signal_MP_Send(
+  rtems_id         id,
+  rtems_signal_set signal_set
 );
 
 /**
@@ -121,13 +87,6 @@ void _Signal_MP_Process_packet (
  *  This routine is not needed since there are no objects
  *  deleted by this manager.
  */
-
-/**
- *  @brief Signal MP Get Packet
- *
- *  This function is used to obtain a signal mp packet.
- */
-Signal_MP_Packet *_Signal_MP_Get_packet ( void );
 
 /**@}*/
 

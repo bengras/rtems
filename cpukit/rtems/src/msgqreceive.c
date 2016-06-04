@@ -18,22 +18,11 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
-#include <rtems/score/chain.h>
-#include <rtems/score/isr.h>
-#include <rtems/score/coremsgimpl.h>
-#include <rtems/score/threadimpl.h>
-#include <rtems/score/wkspace.h>
-#include <rtems/rtems/status.h>
-#include <rtems/rtems/attrimpl.h>
 #include <rtems/rtems/messageimpl.h>
 #include <rtems/rtems/optionsimpl.h>
-#include <rtems/rtems/support.h>
+#include <rtems/rtems/statusimpl.h>
 
-THREAD_WAIT_QUEUE_OBJECT_ASSERT(
-  Message_queue_Control,
-  message_queue.Wait_queue
-);
+THREAD_QUEUE_OBJECT_ASSERT( Message_queue_Control, message_queue.Wait_queue );
 
 rtems_status_code rtems_message_queue_receive(
   rtems_id        id,
@@ -43,61 +32,43 @@ rtems_status_code rtems_message_queue_receive(
   rtems_interval  timeout
 )
 {
-  Message_queue_Control          *the_message_queue;
-  Objects_Locations               location;
-  bool                            wait;
-  Thread_Control                 *executing;
-  ISR_lock_Context                lock_context;
+  Message_queue_Control *the_message_queue;
+  Thread_queue_Context   queue_context;
+  Thread_Control        *executing;
+  Status_Control         status;
 
-  if ( !buffer )
+  if ( buffer == NULL ) {
     return RTEMS_INVALID_ADDRESS;
-
-  if ( !size )
-    return RTEMS_INVALID_ADDRESS;
-
-  the_message_queue = _Message_queue_Get_interrupt_disable(
-    id,
-    &location,
-    &lock_context
-  );
-  switch ( location ) {
-
-    case OBJECTS_LOCAL:
-      if ( _Options_Is_no_wait( option_set ) )
-        wait = false;
-      else
-        wait = true;
-
-      executing = _Thread_Executing;
-      _CORE_message_queue_Seize(
-        &the_message_queue->message_queue,
-        executing,
-        the_message_queue->Object.id,
-        buffer,
-        size,
-        wait,
-        timeout,
-        &lock_context
-      );
-      return _Message_queue_Translate_core_message_queue_return_code(
-        executing->Wait.return_code
-      );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-      return _Message_queue_MP_Send_request_packet(
-          MESSAGE_QUEUE_MP_RECEIVE_REQUEST,
-          id,
-          buffer,
-          size,
-          option_set,
-          timeout
-        );
-#endif
-
-    case OBJECTS_ERROR:
-      break;
   }
 
-  return RTEMS_INVALID_ID;
+  if ( size == NULL ) {
+    return RTEMS_INVALID_ADDRESS;
+  }
+
+  the_message_queue = _Message_queue_Get( id, &queue_context );
+
+  if ( the_message_queue == NULL ) {
+#if defined(RTEMS_MULTIPROCESSING)
+    return _Message_queue_MP_Receive( id, buffer, size, option_set, timeout );
+#else
+    return RTEMS_INVALID_ID;
+#endif
+  }
+
+  _CORE_message_queue_Acquire_critical(
+    &the_message_queue->message_queue,
+    &queue_context
+  );
+
+  executing = _Thread_Executing;
+  status = _CORE_message_queue_Seize(
+    &the_message_queue->message_queue,
+    executing,
+    buffer,
+    size,
+    !_Options_Is_no_wait( option_set ),
+    timeout,
+    &queue_context
+  );
+  return _Status_Get( status );
 }

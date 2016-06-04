@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2010-2015 embedded brains GmbH.  All rights reserved.
+ * Copyright (c) 2010, 2016 embedded brains GmbH.  All rights reserved.
  *
  *  embedded brains GmbH
  *  Dornierstr. 4
@@ -60,47 +60,21 @@ _start:
 	bl	bsp_fdt_copy
 #endif /* U_BOOT_USE_FDT */
 
-	/* Invalidate L1 data cache */
-	mfspr	r3, FSL_EIS_L1CSR0
-	ori	r3, r3, FSL_EIS_L1CSR0_CFI
-	mtspr	FSL_EIS_L1CSR0, r3
-1:
-	mfspr	r3, FSL_EIS_L1CSR0
-	andi.	r3, r3, FSL_EIS_L1CSR0_CFI
-	bne	1b
-	isync
+	bl	qoriq_l1cache_invalidate
 
-	/* Invalidate L1 instruction cache */
-	mfspr	r3, FSL_EIS_L1CSR1
-	ori	r3, r3, FSL_EIS_L1CSR1_ICFI
-	mtspr	FSL_EIS_L1CSR1, r3
-1:
-	mfspr	r3, FSL_EIS_L1CSR1
-	andi.	r3, r3, FSL_EIS_L1CSR1_ICFI
-	bne	1b
-	isync
+#ifdef QORIQ_CLUSTER_1_L2CSR0
+	LWI	r3, QORIQ_CLUSTER_1_L2CSR0
+	bl	qoriq_l2cache_flush_invalidate
+#endif
 
-#ifdef QORIQ_L2CSR0
-	/* Flush L2 cache of first cluster */
-	LWI	r4, QORIQ_L2CSR0
-	lwz	r3, 0(r4)
-	oris	r3, r3, FSL_EIS_L2CSR0_L2FL >> 16
-	stw	r3, 0(r4)
-1:
-	lwz	r3, 0(r4)
-	andis.	r3, r3, FSL_EIS_L2CSR0_L2FL >> 16
-	bne	1b
-	isync
+#ifdef QORIQ_CLUSTER_2_L2CSR0
+	LWI	r3, QORIQ_CLUSTER_2_L2CSR0
+	bl	qoriq_l2cache_flush_invalidate
+#endif
 
-	/* Invalidate L2 cache of first cluster */
-	lwz	r3, 0(r4)
-	oris	r3, r3, FSL_EIS_L2CSR0_L2FI >> 16
-	stw	r3, 0(r4)
-1:
-	lwz	r3, 0(r4)
-	andis.	r3, r3, FSL_EIS_L2CSR0_L2FI >> 16
-	bne	1b
-	isync
+#ifdef QORIQ_CLUSTER_3_L2CSR0
+	LWI	r3, QORIQ_CLUSTER_3_L2CSR0
+	bl	qoriq_l2cache_flush_invalidate
 #endif
 
 	/* Get start stack */
@@ -173,11 +147,6 @@ _start:
 
 	/* Do not use r3 here, since this could be the U-Boot board info */
 .Linitearly:
-	/* Reset time base */
-	li	r0, 0
-	mtspr	TBWU, r0
-	mtspr	TBWL, r0
-
 	/* Disable decrementer */
 	mfspr	r0, BOOKE_TCR
 	LWI	r4, BOOKE_TCR_DIE
@@ -197,6 +166,12 @@ _start:
 	isync
 #endif
 
+#ifdef QORIQ_INITIAL_HID0
+	/* HID0 initialization */
+	LWI	r0, QORIQ_INITIAL_HID0
+	mtspr	HID0, r0
+#endif
+
 	/* Invalidate TLS anchor */
 	li	r2, 0
 
@@ -208,8 +183,11 @@ _start:
 .Linitmore:
 	mflr	SAVED_LINK_REGISTER
 
-	/* Initial MMU setup */
-	bl	qoriq_tlb1_ts_0_only
+	/* Invalidate all TS1 MMU entries */
+	li	r3, 1
+	bl	qoriq_tlb1_invalidate_all_by_ts
+
+	/* Add TS1 entry for the first 4GiB of RAM */
 	li	r3, SCRATCH_TLB
 	li	r4, FSL_EIS_MAS1_TS
 	li	r5, FSL_EIS_MAS2_I
@@ -219,7 +197,7 @@ _start:
 	li	r9, 11
 	bl	qoriq_tlb1_write
 
-	/* MSR initialization */
+	/* MSR initialization and use TS1 for address translation */
 	LWI	INITIAL_MSR, QORIQ_INITIAL_MSR
 	ori	r0, INITIAL_MSR, MSR_IS | MSR_DS
 	mtmsr	r0
@@ -252,7 +230,6 @@ _start:
 
 	mtlr	SAVED_LINK_REGISTER
 	blr
-
 
 #ifdef INITIALIZE_FPU
 	/*

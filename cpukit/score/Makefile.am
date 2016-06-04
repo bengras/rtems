@@ -87,6 +87,7 @@ include_rtems_score_HEADERS += include/rtems/score/stack.h
 include_rtems_score_HEADERS += include/rtems/score/stackimpl.h
 include_rtems_score_HEADERS += include/rtems/score/states.h
 include_rtems_score_HEADERS += include/rtems/score/statesimpl.h
+include_rtems_score_HEADERS += include/rtems/score/status.h
 include_rtems_score_HEADERS += include/rtems/score/sysstate.h
 include_rtems_score_HEADERS += include/rtems/score/thread.h
 include_rtems_score_HEADERS += include/rtems/score/threadimpl.h
@@ -128,6 +129,10 @@ if HAS_SMP
 include_rtems_score_HEADERS += include/rtems/score/schedulerprioritysmpimpl.h
 include_rtems_score_HEADERS += include/rtems/score/schedulerpriorityaffinitysmp.h
 include_rtems_score_HEADERS += include/rtems/score/schedulersimplesmp.h
+include_rtems_score_HEADERS += include/rtems/score/schedulerstrongapa.h
+include_rtems_score_HEADERS += include/rtems/score/smplockmcs.h
+include_rtems_score_HEADERS += include/rtems/score/smplockstats.h
+include_rtems_score_HEADERS += include/rtems/score/smplockticket.h
 endif
 
 ## src
@@ -148,6 +153,7 @@ libscore_a_SOURCES += src/schedulerchangeroot.c
 libscore_a_SOURCES += src/schedulerpriorityaffinitysmp.c
 libscore_a_SOURCES += src/schedulerprioritysmp.c
 libscore_a_SOURCES += src/schedulersimplesmp.c
+libscore_a_SOURCES += src/schedulerstrongapa.c
 libscore_a_SOURCES += src/schedulersmpdebug.c
 libscore_a_SOURCES += src/smp.c
 libscore_a_SOURCES += src/smplock.c
@@ -175,9 +181,8 @@ libscore_a_SOURCES += src/coremsg.c src/coremsgbroadcast.c \
     src/coremsgsubmit.c
 
 ## CORE_MUTEX_C_FILES
-libscore_a_SOURCES += src/coremutex.c \
-    src/coremutexseize.c src/coremutexsurrender.c \
-    src/coremutexseizeintr.c
+libscore_a_SOURCES += src/coremutexseize.c
+libscore_a_SOURCES += src/coremutexsurrender.c
 
 ## CORE_PERCPU_C_FILES
 libscore_a_SOURCES += src/percpu.c
@@ -206,8 +211,8 @@ libscore_a_SOURCES += src/heap.c src/heapallocate.c src/heapextend.c \
 
 ## OBJECT_C_FILES
 libscore_a_SOURCES += src/objectallocate.c src/objectclose.c \
-    src/objectextendinformation.c src/objectfree.c src/objectget.c \
-    src/objectgetisr.c src/objectgetnext.c src/objectinitializeinformation.c \
+    src/objectextendinformation.c src/objectfree.c \
+    src/objectgetnext.c src/objectinitializeinformation.c \
     src/objectnametoid.c src/objectnametoidstring.c \
     src/objectshrinkinformation.c src/objectgetnoprotection.c \
     src/objectidtoname.c src/objectgetnameasstring.c src/objectsetname.c \
@@ -295,7 +300,6 @@ libscore_a_SOURCES += src/rbtreereplace.c
 libscore_a_SOURCES += src/thread.c src/threadchangepriority.c \
     src/threadclearstate.c src/threadcreateidle.c \
     src/threaddispatch.c \
-    src/threadenabledispatch.c src/threaddisabledispatch.c \
     src/threadget.c src/threadhandler.c src/threadinitialize.c \
     src/threadloadenv.c \
     src/threadrestart.c src/threadsetpriority.c \
@@ -310,10 +314,6 @@ libscore_a_SOURCES += src/threadglobalconstruction.c
 libscore_a_SOURCES += src/threadtimeout.c
 libscore_a_SOURCES += src/threadwaitgetid.c
 libscore_a_SOURCES += src/threadyield.c
-
-if HAS_SMP
-libscore_a_SOURCES += src/threaddispatchdisablelevel.c
-endif
 
 ## THREADQ_C_FILES
 libscore_a_SOURCES += src/threadq.c \
@@ -361,6 +361,7 @@ libscore_a_SOURCES += src/sched.c
 libscore_a_SOURCES += src/semaphore.c
 libscore_a_SOURCES += src/smpbarrierwait.c
 libscore_a_SOURCES += src/kern_tc.c
+libscore_a_SOURCES += src/libatomic.c
 
 EXTRA_DIST = src/Unlimited.txt
 

@@ -316,6 +316,10 @@ $(PROJECT_INCLUDE)/rtems/score/statesimpl.h: include/rtems/score/statesimpl.h $(
 	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/statesimpl.h
 PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/statesimpl.h
 
+$(PROJECT_INCLUDE)/rtems/score/status.h: include/rtems/score/status.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/status.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/status.h
+
 $(PROJECT_INCLUDE)/rtems/score/sysstate.h: include/rtems/score/sysstate.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
 	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/sysstate.h
 PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/sysstate.h
@@ -446,4 +450,20 @@ PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/schedulerpriorityaffinitysmp.
 $(PROJECT_INCLUDE)/rtems/score/schedulersimplesmp.h: include/rtems/score/schedulersimplesmp.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
 	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/schedulersimplesmp.h
 PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/schedulersimplesmp.h
+
+$(PROJECT_INCLUDE)/rtems/score/schedulerstrongapa.h: include/rtems/score/schedulerstrongapa.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/schedulerstrongapa.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/schedulerstrongapa.h
+
+$(PROJECT_INCLUDE)/rtems/score/smplockmcs.h: include/rtems/score/smplockmcs.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/smplockmcs.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/smplockmcs.h
+
+$(PROJECT_INCLUDE)/rtems/score/smplockstats.h: include/rtems/score/smplockstats.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/smplockstats.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/smplockstats.h
+
+$(PROJECT_INCLUDE)/rtems/score/smplockticket.h: include/rtems/score/smplockticket.h $(PROJECT_INCLUDE)/rtems/score/$(dirstamp)
+	$(INSTALL_DATA) $< $(PROJECT_INCLUDE)/rtems/score/smplockticket.h
+PREINSTALL_FILES += $(PROJECT_INCLUDE)/rtems/score/smplockticket.h
 endif

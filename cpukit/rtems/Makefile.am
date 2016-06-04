@@ -60,7 +60,6 @@ include_rtems_rtems_HEADERS += include/rtems/rtems/eventmp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/mp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/msgmp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/partmp.h
-include_rtems_rtems_HEADERS += include/rtems/rtems/regionmp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/semmp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/signalmp.h
 include_rtems_rtems_HEADERS += include/rtems/rtems/taskmp.h
@@ -104,13 +103,6 @@ librtems_a_SOURCES += src/taskstart.c
 librtems_a_SOURCES += src/tasksuspend.c
 librtems_a_SOURCES += src/taskwakeafter.c
 librtems_a_SOURCES += src/taskwakewhen.c
-if HAS_SMP
-else
-librtems_a_SOURCES += src/taskvariableadd.c
-librtems_a_SOURCES += src/taskvariabledelete.c
-librtems_a_SOURCES += src/taskvariableget.c
-librtems_a_SOURCES += src/taskvariable_invoke_dtor.c
-endif
 librtems_a_SOURCES += src/schedulergetprocessorset.c
 librtems_a_SOURCES += src/schedulerident.c
 
@@ -137,12 +129,10 @@ librtems_a_SOURCES += src/barrier.c
 librtems_a_SOURCES += src/barriercreate.c
 librtems_a_SOURCES += src/barrierdelete.c
 librtems_a_SOURCES += src/barrierident.c
-librtems_a_SOURCES += src/barriertranslatereturncode.c
 librtems_a_SOURCES += src/barrierrelease.c
 librtems_a_SOURCES += src/barrierwait.c
 
 ## CLOCK_C_FILES
-librtems_a_SOURCES += src/clockget.c
 librtems_a_SOURCES += src/clockgetsecondssinceepoch.c
 librtems_a_SOURCES += src/clockgettickspersecond.c
 librtems_a_SOURCES += src/clockgettod.c
@@ -179,7 +169,6 @@ librtems_a_SOURCES += src/msgqgetnumberpending.c
 librtems_a_SOURCES += src/msgqident.c
 librtems_a_SOURCES += src/msgqreceive.c
 librtems_a_SOURCES += src/msgqsend.c
-librtems_a_SOURCES += src/msgqtranslatereturncode.c
 librtems_a_SOURCES += src/msgqurgent.c
 
 ## SEMAPHORE_C_FILES
@@ -190,7 +179,6 @@ librtems_a_SOURCES += src/semident.c
 librtems_a_SOURCES += src/semobtain.c
 librtems_a_SOURCES += src/semrelease.c
 librtems_a_SOURCES += src/semflush.c
-librtems_a_SOURCES += src/semtranslatereturncode.c
 librtems_a_SOURCES += src/semsetpriority.c
 
 ## EVENT_C_FILES
@@ -253,7 +241,6 @@ librtems_a_SOURCES += src/eventmp.c
 librtems_a_SOURCES += src/mp.c
 librtems_a_SOURCES += src/msgmp.c
 librtems_a_SOURCES += src/partmp.c
-librtems_a_SOURCES += src/regionmp.c
 librtems_a_SOURCES += src/semmp.c
 librtems_a_SOURCES += src/signalmp.c
 librtems_a_SOURCES += src/taskmp.c

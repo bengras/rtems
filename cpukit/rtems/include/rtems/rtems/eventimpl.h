@@ -44,7 +44,7 @@ extern "C" {
  */
 #define EVENT_SETS_NONE_PENDING 0
 
-void _Event_Seize(
+rtems_status_code _Event_Seize(
   rtems_event_set    event_in,
   rtems_option       option_set,
   rtems_interval     ticks,
@@ -56,7 +56,7 @@ void _Event_Seize(
   ISR_lock_Context  *lock_context
 );
 
-void _Event_Surrender(
+rtems_status_code _Event_Surrender(
   Thread_Control    *the_thread,
   rtems_event_set    event_in,
   Event_Control     *event,

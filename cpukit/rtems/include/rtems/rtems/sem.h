@@ -75,28 +75,44 @@ typedef struct {
    */
   union {
     /**
+     * @brief The thread queue present in all other variants.
+     */
+    Thread_queue_Control Wait_queue;
+
+    /**
      *  This is the SuperCore Mutex instance associated with this Classic
      *  API Semaphore instance.
      */
-    CORE_mutex_Control     mutex;
+    CORE_ceiling_mutex_Control Mutex;
 
     /**
      *  This is the SuperCore Semaphore instance associated with this Classic
      *  API Semaphore instance.
      */
-    CORE_semaphore_Control semaphore;
+    CORE_semaphore_Control Semaphore;
 
 #if defined(RTEMS_SMP)
-    MRSP_Control mrsp;
+    MRSP_Control MRSP;
 #endif
   } Core_control;
 
   /**
-   *  This is the Classic API attribute provided to the create directive.
-   *  It is translated into behavioral attributes on the SuperCore Semaphore
-   *  or Mutex instance.
+   * @brief The semaphore variant.
+   *
+   * @see Semaphore_Variant.
    */
-  rtems_attribute          attribute_set;
+  unsigned int variant : 3;
+
+  /**
+   * @brief The semaphore thread queue discipline.
+   *
+   * @see Semaphore_Discipline.
+   */
+  unsigned int discipline : 1;
+
+#if defined(RTEMS_MULTIPROCESSING)
+  unsigned int is_global : 1;
+#endif
 }   Semaphore_Control;
 
 /**

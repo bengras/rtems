@@ -36,12 +36,8 @@ void _API_Mutex_Initialization(
     maximum_mutexes,             /* maximum objects of this class */
     sizeof( API_Mutex_Control ), /* size of this object's control block */
     false,                       /* true if the name is a string */
-    0                            /* maximum length of an object name */
-#if defined(RTEMS_MULTIPROCESSING)
-    ,
-    false,                       /* true if this is a global object class */
+    0,                           /* maximum length of an object name */
     NULL                         /* Proxy extraction support callout */
-#endif
   );
 }
 
@@ -51,19 +47,12 @@ void _API_Mutex_Allocate(
 {
   API_Mutex_Control *mutex;
 
-  CORE_mutex_Attributes attr =  {
-    CORE_MUTEX_NESTING_ACQUIRES,
-    true,
-    CORE_MUTEX_DISCIPLINES_PRIORITY_INHERIT,
-    0
-  };
-
   mutex = (API_Mutex_Control *)
     _Objects_Allocate_unprotected( &_API_Mutex_Information );
 
   _Assert( mutex != NULL );
 
-  _CORE_mutex_Initialize( &mutex->Mutex, NULL, &attr, false );
+  _CORE_recursive_mutex_Initialize( &mutex->Mutex );
 
   _Objects_Open_u32( &_API_Mutex_Information, &mutex->Object, 1 );
 

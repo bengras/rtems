@@ -20,59 +20,21 @@
 #include "config.h"
 #endif
 
-#include <pthread.h>
-#include <errno.h>
-
 #include <rtems/posix/rwlockimpl.h>
-#include <rtems/score/apimutex.h>
-
-static bool _POSIX_RWLock_Check_id_and_auto_init(
-  pthread_mutex_t   *rwlock,
-  Objects_Locations *location
-)
-{
-  if ( rwlock == NULL ) {
-    *location = OBJECTS_ERROR;
-
-    return false;
-  }
-
-  if ( *rwlock == PTHREAD_RWLOCK_INITIALIZER ) {
-    int eno;
-
-    _Once_Lock();
-
-    if ( *rwlock == PTHREAD_RWLOCK_INITIALIZER ) {
-      eno = pthread_rwlock_init( rwlock, NULL );
-    } else {
-      eno = 0;
-    }
-
-    _Once_Unlock();
-
-    if ( eno != 0 ) {
-      *location = OBJECTS_ERROR;
-
-      return false;
-    }
-  }
-
-  return true;
-}
+#include <rtems/posix/posixapi.h>
 
 POSIX_RWLock_Control *_POSIX_RWLock_Get(
-  pthread_rwlock_t  *rwlock,
-  Objects_Locations *location
+  pthread_rwlock_t     *rwlock,
+  Thread_queue_Context *queue_context
 )
 {
-  if ( !_POSIX_RWLock_Check_id_and_auto_init( rwlock, location ) ) {
-    return NULL;
-  }
-
-  return (POSIX_RWLock_Control *) _Objects_Get(
+  _POSIX_Get_object_body(
+    POSIX_RWLock_Control,
+    rwlock,
+    queue_context,
     &_POSIX_RWLock_Information,
-    *rwlock,
-    location
+    PTHREAD_RWLOCK_INITIALIZER,
+    pthread_rwlock_init
   );
 }
 
@@ -97,7 +59,6 @@ int pthread_rwlock_init(
 )
 {
   POSIX_RWLock_Control        *the_rwlock;
-  CORE_RWLock_Attributes       the_attributes;
   pthread_rwlockattr_t         default_attr;
   const pthread_rwlockattr_t  *the_attr;
 
@@ -131,13 +92,6 @@ int pthread_rwlock_init(
       return EINVAL;
   }
 
-  /*
-   * Convert from POSIX attributes to Core RWLock attributes
-   * 
-   * NOTE: Currently there are no core rwlock attributes
-   */
-  _CORE_RWLock_Initialize_attributes( &the_attributes );
-
   the_rwlock = _POSIX_RWLock_Allocate();
 
   if ( !the_rwlock ) {
@@ -145,7 +99,7 @@ int pthread_rwlock_init(
     return EAGAIN;
   }
 
-  _CORE_RWLock_Initialize( &the_rwlock->RWLock, &the_attributes );
+  _CORE_RWLock_Initialize( &the_rwlock->RWLock );
 
   _Objects_Open_u32(
     &_POSIX_RWLock_Information,

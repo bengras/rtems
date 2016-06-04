@@ -200,7 +200,7 @@ static void delay_ipi_task(rtems_task_argument variant)
   test_context *ctx = &test_instance;
   ISR_Level level;
 
-  _ISR_Disable_without_giant(level);
+  _ISR_Local_disable(level);
 
   /* (C) */
   barrier(ctx, &ctx->worker_barrier_state);
@@ -212,19 +212,19 @@ static void delay_ipi_task(rtems_task_argument variant)
   rtems_counter_delay_nanoseconds(100000000);
 
   if (variant != 0) {
-    _Thread_Disable_dispatch();
+    _Thread_Dispatch_disable();
   }
 
-  _ISR_Enable_without_giant(level);
+  _ISR_Local_enable(level);
 
   /*
    * We get deleted as a side effect of enabling the thread life protection or
    * later if we enable the thread dispatching.
    */
-  _Thread_Set_life_protection(true);
+  _Thread_Set_life_protection( THREAD_LIFE_PROTECTED );
 
   if (variant != 0) {
-    _Thread_Enable_dispatch();
+    _Thread_Dispatch_enable( _Per_CPU_Get() );
   }
 
   rtems_test_assert(0);
@@ -267,7 +267,7 @@ static void delay_switch_task(rtems_task_argument arg)
   rtems_status_code sc;
   ISR_Level level;
 
-  _ISR_Disable_without_giant(level);
+  _ISR_Local_disable(level);
   (void) level;
 
   ctx->delay_switch_for_executing = _Thread_Get_executing();
@@ -403,7 +403,7 @@ static void op_worker_task(rtems_task_argument arg)
   test_op op = arg;
   ISR_Level level;
 
-  _ISR_Disable_without_giant(level);
+  _ISR_Local_disable(level);
   (void) level;
 
   /* (E) */

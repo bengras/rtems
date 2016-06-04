@@ -18,46 +18,116 @@
 #include "config.h"
 #endif
 
-#include <rtems/score/threadqimpl.h>
-#include <rtems/score/objectimpl.h>
+#include <rtems/score/threadimpl.h>
+#include <rtems/score/status.h>
 
-void _Thread_queue_Do_flush(
-  Thread_queue_Control          *the_thread_queue,
-  const Thread_queue_Operations *operations,
-  uint32_t                       status
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  Thread_queue_MP_callout        mp_callout,
-  Objects_Id                     mp_id
-#endif
+Thread_Control *_Thread_queue_Flush_default_filter(
+  Thread_Control       *the_thread,
+  Thread_queue_Queue   *queue,
+  Thread_queue_Context *queue_context
 )
 {
-  ISR_lock_Context  lock_context;
-  Thread_Control   *the_thread;
+  (void) queue;
+  (void) queue_context;
+  return the_thread;
+}
 
-  _Thread_queue_Acquire( the_thread_queue, &lock_context );
+Thread_Control *_Thread_queue_Flush_status_object_was_deleted(
+  Thread_Control       *the_thread,
+  Thread_queue_Queue   *queue,
+  Thread_queue_Context *queue_context
+)
+{
+  the_thread->Wait.return_code = STATUS_OBJECT_WAS_DELETED;
 
-  while (
-    (
-      the_thread = _Thread_queue_First_locked(
-        the_thread_queue,
-        operations
-      )
-    )
-  ) {
-    the_thread->Wait.return_code = status;
+  (void) queue;
+  (void) queue_context;
+  return the_thread;
+}
 
-    _Thread_queue_Extract_critical(
-      &the_thread_queue->Queue,
+Thread_Control *_Thread_queue_Flush_status_unavailable(
+  Thread_Control       *the_thread,
+  Thread_queue_Queue   *queue,
+  Thread_queue_Context *queue_context
+)
+{
+  the_thread->Wait.return_code = STATUS_UNAVAILABLE;
+
+  (void) queue;
+  (void) queue_context;
+  return the_thread;
+}
+
+size_t _Thread_queue_Flush_critical(
+  Thread_queue_Queue            *queue,
+  const Thread_queue_Operations *operations,
+  Thread_queue_Flush_filter      filter,
+  Thread_queue_Context          *queue_context
+)
+{
+  size_t         flushed;
+  Chain_Control  unblock;
+  Chain_Node    *node;
+  Chain_Node    *tail;
+
+  flushed = 0;
+  _Chain_Initialize_empty( &unblock );
+
+  while ( true ) {
+    Thread_queue_Heads *heads;
+    Thread_Control     *first;
+    bool                do_unblock;
+
+    heads = queue->heads;
+    if ( heads == NULL ) {
+      break;
+    }
+
+    first = ( *operations->first )( heads );
+    first = ( *filter )( first, queue, queue_context );
+    if ( first == NULL ) {
+      break;
+    }
+
+    do_unblock = _Thread_queue_Extract_locked(
+      queue,
       operations,
-      the_thread,
-      mp_callout,
-      mp_id,
-      &lock_context
+      first,
+      queue_context
     );
+    if ( do_unblock ) {
+      _Chain_Append_unprotected( &unblock, &first->Wait.Node.Chain );
+    }
 
-    _Thread_queue_Acquire( the_thread_queue, &lock_context );
+    ++flushed;
   }
 
-  _Thread_queue_Release( the_thread_queue, &lock_context );
+  node = _Chain_First( &unblock );
+  tail = _Chain_Tail( &unblock );
+
+  if ( node != tail ) {
+    Per_CPU_Control *cpu_self;
+
+    cpu_self = _Thread_Dispatch_disable_critical(
+      &queue_context->Lock_context
+    );
+    _Thread_queue_Queue_release( queue, &queue_context->Lock_context );
+
+    do {
+      Thread_Control *the_thread;
+      Chain_Node     *next;
+
+      next = _Chain_Next( node );
+      the_thread = THREAD_CHAIN_NODE_TO_THREAD( node );
+      _Thread_Remove_timer_and_unblock( the_thread, queue );
+
+      node = next;
+    } while ( node != tail );
+
+    _Thread_Dispatch_enable( cpu_self );
+  } else {
+    _Thread_queue_Queue_release( queue, &queue_context->Lock_context );
+  }
+
+  return flushed;
 }

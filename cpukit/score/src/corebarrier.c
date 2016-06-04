@@ -19,7 +19,6 @@
 #endif
 
 #include <rtems/score/corebarrierimpl.h>
-#include <rtems/score/threadqimpl.h>
 
 void _CORE_barrier_Initialize(
   CORE_barrier_Control       *the_barrier,

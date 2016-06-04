@@ -26,6 +26,8 @@ nodist_include_HEADERS = ../../shared/include/coverhd.h \
 
 nodist_include_bsp_HEADERS = ../../shared/include/bootcard.h
 
+noinst_HEADERS = console/font_data.h
+
 include_bsp_HEADERS =
 include_bsp_HEADERS += ../../../libbsp/shared/include/mm.h
 include_bsp_HEADERS += ../../shared/include/utility.h
@@ -48,6 +50,10 @@ include_bsp_HEADERS += include/raspberrypi.h
 include_bsp_HEADERS += include/rpi-gpio.h
 include_bsp_HEADERS += include/i2c.h
 include_bsp_HEADERS += include/spi.h
+include_bsp_HEADERS += include/mailbox.h
+include_bsp_HEADERS += include/vc.h
+include_bsp_HEADERS += include/rpi-fb.h
+include_bsp_HEADERS += console/fbcons.h
 
 include_libcpu_HEADERS = ../../../libcpu/arm/shared/include/cache_.h \
     ../../../libcpu/arm/shared/include/arm-cp15.h
@@ -80,7 +86,6 @@ libbsp_a_LIBADD =
 # Shared
 libbsp_a_SOURCES += ../../shared/bootcard.c
 libbsp_a_SOURCES += ../../shared/bspclean.c
-libbsp_a_SOURCES += ../../shared/bspgetworkarea.c
 libbsp_a_SOURCES += ../../shared/bsppredriverhook.c
 libbsp_a_SOURCES += ../../shared/cpucounterread.c
 libbsp_a_SOURCES += ../../shared/cpucounterdiff.c
@@ -93,6 +98,8 @@ libbsp_a_SOURCES += ../shared/arm-cp15-set-ttb-entries.c
 # Startup
 libbsp_a_SOURCES += ../../shared/bspreset_loop.c
 libbsp_a_SOURCES += startup/bspstart.c
+libbsp_a_SOURCES += startup/cmdline.c
+libbsp_a_SOURCES += startup/bspgetworkarea.c
 
 # IRQ
 libbsp_a_SOURCES += ../shared/arm-cp15-set-exception-handler.c
@@ -107,10 +114,19 @@ libbsp_a_SOURCES += irq/irq.c
 libbsp_a_SOURCES += ../../shared/console.c
 libbsp_a_SOURCES += ../../shared/console_control.c
 libbsp_a_SOURCES += ../../shared/console_read.c
-libbsp_a_SOURCES += ../../shared/console_select.c
 libbsp_a_SOURCES += ../../shared/console_write.c
 libbsp_a_SOURCES += console/console-config.c
+libbsp_a_SOURCES += console/console_select.c
 libbsp_a_SOURCES += console/usart.c
+libbsp_a_SOURCES += console/fb.c
+libbsp_a_SOURCES += console/fbcons.c
+libbsp_a_SOURCES += console/outch.c
+
+# Mailbox
+libbsp_a_SOURCES += misc/mailbox.c
+
+# VideoCore
+libbsp_a_SOURCES += misc/vc.c
 
 # clock
 libbsp_a_SOURCES += clock/clockdrv.c ../../../shared/clockdrv_shell.h

@@ -20,21 +20,16 @@
 
 #include <rtems/score/objectimpl.h>
 
-Objects_Control *
-_Objects_Get_next(
-    Objects_Information *information,
-    Objects_Id           id,
-    Objects_Locations   *location_p,
-    Objects_Id          *next_id_p
+Objects_Control *_Objects_Get_next(
+  Objects_Id                 id,
+  const Objects_Information *information,
+  Objects_Id                *next_id_p
 )
 {
-    Objects_Control *object;
+    Objects_Control *the_object;
     Objects_Id       next_id;
 
     if ( !information )
-      return NULL;
-
-    if ( !location_p )
       return NULL;
 
     if ( !next_id_p )
@@ -52,18 +47,17 @@ _Objects_Get_next(
         if (_Objects_Get_index(next_id) > information->maximum)
         {
             _Objects_Allocator_unlock();
-            *location_p = OBJECTS_ERROR;
             *next_id_p = OBJECTS_ID_FINAL;
             return NULL;
         }
 
         /* try to grab one */
-        object = _Objects_Get_no_protection(information, next_id, location_p);
+        the_object = _Objects_Get_no_protection( next_id, information );
 
         next_id++;
 
-    } while (*location_p != OBJECTS_LOCAL);
+    } while ( the_object == NULL );
 
     *next_id_p = next_id;
-    return object;
+    return the_object;
 }

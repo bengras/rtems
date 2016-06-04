@@ -70,12 +70,17 @@ libbsp_a_SOURCES += \
 	../shared/startup/bspidle.c \
 	../shared/uboot_getenv.c \
 	../shared/uboot_dump_bdinfo.c \
+	startup/l1cache.S \
+	startup/l2cache.S \
 	startup/mmu.c \
 	startup/mmu-tlb1.S \
 	startup/mmu-config.c \
+	startup/portal.c \
+	startup/restart.S \
 	startup/bsppredriverhook.c \
 	startup/bspstart.c \
-	startup/bspreset.c
+	startup/bspreset.c \
+	startup/bsprestart.c
 
 # Clock
 libbsp_a_SOURCES += clock/clock-config.c \

@@ -32,6 +32,7 @@ rtems_status_code rtems_task_mode(
   rtems_mode *previous_mode_set
 )
 {
+  ISR_lock_Context    lock_context;
   Thread_Control     *executing;
   RTEMS_API_Control  *api;
   ASR_Information    *asr;
@@ -97,10 +98,12 @@ rtems_status_code rtems_task_mode(
   if ( mask & RTEMS_ASR_MASK ) {
     bool is_asr_enabled = !_Modes_Is_asr_disabled( mode_set );
 
+    _Thread_State_acquire( executing, &lock_context );
+
     if ( is_asr_enabled != asr->is_enabled ) {
       asr->is_enabled = is_asr_enabled;
-      _ASR_Swap_signals( asr );
-      if ( _ASR_Are_signals_pending( asr ) ) {
+
+      if ( _ASR_Swap_signals( asr ) != 0 ) {
         needs_asr_dispatching = true;
         _Thread_Add_post_switch_action(
           executing,
@@ -109,16 +112,17 @@ rtems_status_code rtems_task_mode(
         );
       }
     }
+
+    _Thread_State_release( executing, &lock_context );
   }
 
   if ( preempt_enabled || needs_asr_dispatching ) {
     Per_CPU_Control  *cpu_self;
-    ISR_lock_Context  lock_context;
 
     cpu_self = _Thread_Dispatch_disable();
-    _Scheduler_Acquire( executing, &lock_context );
+    _Thread_State_acquire( executing, &lock_context );
     _Scheduler_Schedule( executing );
-    _Scheduler_Release( executing, &lock_context );
+    _Thread_State_release( executing, &lock_context );
     _Thread_Dispatch_enable( cpu_self );
   }
 

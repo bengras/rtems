@@ -29,6 +29,7 @@
 #include <rtems/score/objectimpl.h>
 #include <rtems/score/resourceimpl.h>
 #include <rtems/score/statesimpl.h>
+#include <rtems/score/status.h>
 #include <rtems/score/sysstate.h>
 #include <rtems/score/threadqimpl.h>
 #include <rtems/score/todimpl.h>
@@ -94,10 +95,6 @@ void _Thread_Initialize_information(
   uint32_t             maximum,
   bool                 is_string,
   uint32_t             maximum_name_length
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  bool                 supports_global
-#endif
 );
 
 /**
@@ -191,25 +188,31 @@ bool _Thread_Initialize(
  */
 bool _Thread_Start(
   Thread_Control                 *the_thread,
-  const Thread_Entry_information *entry
+  const Thread_Entry_information *entry,
+  ISR_lock_Context               *lock_context
 );
 
-bool _Thread_Restart(
-  Thread_Control                 *the_thread,
+void _Thread_Restart_self(
   Thread_Control                 *executing,
-  const Thread_Entry_information *entry
+  const Thread_Entry_information *entry,
+  ISR_lock_Context               *lock_context
+) RTEMS_NO_RETURN;
+
+bool _Thread_Restart_other(
+  Thread_Control                 *the_thread,
+  const Thread_Entry_information *entry,
+  ISR_lock_Context               *lock_context
 );
 
 void _Thread_Yield( Thread_Control *executing );
 
-bool _Thread_Set_life_protection( bool protect );
-
-void _Thread_Life_action_handler(
-  Thread_Control  *executing,
-  Thread_Action   *action,
-  Per_CPU_Control *cpu,
-  ISR_Level        level
+Thread_Life_state _Thread_Change_life(
+  Thread_Life_state clear,
+  Thread_Life_state set,
+  Thread_Life_state ignore
 );
+
+Thread_Life_state _Thread_Set_life_protection( Thread_Life_state state );
 
 /**
  * @brief Kills all zombie threads in the system.
@@ -222,6 +225,25 @@ void _Thread_Life_action_handler(
  */
 void _Thread_Kill_zombies( void );
 
+void _Thread_Exit(
+  Thread_Control    *executing,
+  Thread_Life_state  set,
+  void              *exit_value
+);
+
+void _Thread_Join(
+  Thread_Control       *the_thread,
+  States_Control        waiting_for_join,
+  Thread_Control       *executing,
+  Thread_queue_Context *queue_context
+);
+
+void _Thread_Cancel(
+  Thread_Control *the_thread,
+  Thread_Control *executing,
+  void           *exit_value
+);
+
 /**
  * @brief Closes the thread.
  *
@@ -230,6 +252,11 @@ void _Thread_Kill_zombies( void );
  * the terminating thread reached the zombie state.
  */
 void _Thread_Close( Thread_Control *the_thread, Thread_Control *executing );
+
+States_Control _Thread_Clear_state_locked(
+  Thread_Control *the_thread,
+  States_Control  state
+);
 
 /**
  * @brief Clears the specified thread state.
@@ -243,6 +270,11 @@ void _Thread_Close( Thread_Control *the_thread, Thread_Control *executing );
  * @return The previous state.
  */
 States_Control _Thread_Clear_state(
+  Thread_Control *the_thread,
+  States_Control  state
+);
+
+States_Control _Thread_Set_state_locked(
   Thread_Control *the_thread,
   States_Control  state
 );
@@ -262,21 +294,6 @@ States_Control _Thread_Set_state(
   Thread_Control *the_thread,
   States_Control  state
 );
-
-/**
- * @brief Clears all thread states.
- *
- * In case the previous state is a non-ready state, then the thread is
- * unblocked by the scheduler.
- *
- * @param[in] the_thread The thread.
- */
-RTEMS_INLINE_ROUTINE void _Thread_Ready(
-  Thread_Control *the_thread
-)
-{
-  _Thread_Clear_state( the_thread, STATES_ALL_SET );
-}
 
 /**
  *  @brief Initializes enviroment for a thread.
@@ -340,6 +357,60 @@ void _Thread_Delay_ended(
   Objects_Id  id,
   void       *ignored
 );
+
+RTEMS_INLINE_ROUTINE void _Thread_State_acquire_critical(
+  Thread_Control   *the_thread,
+  ISR_lock_Context *lock_context
+)
+{
+  _Thread_queue_Acquire_critical( &the_thread->Join_queue, lock_context );
+}
+
+RTEMS_INLINE_ROUTINE void _Thread_State_acquire(
+  Thread_Control   *the_thread,
+  ISR_lock_Context *lock_context
+)
+{
+  _Thread_queue_Acquire( &the_thread->Join_queue, lock_context );
+}
+
+RTEMS_INLINE_ROUTINE Thread_Control *_Thread_State_acquire_for_executing(
+  ISR_lock_Context *lock_context
+)
+{
+  Thread_Control *executing;
+
+  _ISR_lock_ISR_disable( lock_context );
+  executing = _Thread_Executing;
+  _Thread_State_acquire_critical( executing, lock_context );
+
+  return executing;
+}
+
+RTEMS_INLINE_ROUTINE void _Thread_State_release_critical(
+  Thread_Control   *the_thread,
+  ISR_lock_Context *lock_context
+)
+{
+  _Thread_queue_Release_critical( &the_thread->Join_queue, lock_context );
+}
+
+RTEMS_INLINE_ROUTINE void _Thread_State_release(
+  Thread_Control   *the_thread,
+  ISR_lock_Context *lock_context
+)
+{
+  _Thread_queue_Release( &the_thread->Join_queue, lock_context );
+}
+
+#if defined(RTEMS_DEBUG)
+RTEMS_INLINE_ROUTINE bool _Thread_State_is_owner(
+  const Thread_Control *the_thread
+)
+{
+  return _Thread_queue_Is_lock_owner( &the_thread->Join_queue );
+}
+#endif
 
 /**
  * @brief Returns true if the left thread priority is less than the right
@@ -486,40 +557,34 @@ void _Thread_Set_priority(
   bool              prepend_it
 );
 
-/**
- *  @brief Maps thread Id to a TCB pointer.
- *
- *  This function maps thread IDs to thread control
- *  blocks.  If ID corresponds to a local thread, then it
- *  returns the_thread control pointer which maps to ID
- *  and @a location is set to OBJECTS_LOCAL.  If the thread ID is
- *  global and resides on a remote node, then location is set
- *  to OBJECTS_REMOTE, and the_thread is undefined.
- *  Otherwise, location is set to OBJECTS_ERROR and
- *  the_thread is undefined.
- *
- *  @param[in] id is the id of the thread.
- *  @param[in] location is the location of the block.
- *
- *  @note  The performance of many RTEMS services depends upon
- *         the quick execution of the "good object" path in this
- *         routine.  If there is a possibility of saving a few
- *         cycles off the execution time, this routine is worth
- *         further optimization attention.
- */
-Thread_Control *_Thread_Get (
-  Objects_Id         id,
-  Objects_Locations *location
-);
+RTEMS_INLINE_ROUTINE Objects_Information *_Thread_Get_objects_information(
+  Objects_Id id
+)
+{
+  uint32_t the_api;
+
+  the_api = _Objects_Get_API( id );
+
+  if ( !_Objects_Is_api_valid( the_api ) ) {
+    return NULL;
+  }
+
+  /*
+   * Threads are always first class :)
+   *
+   * There is no need to validate the object class of the object identifier,
+   * since this will be done by the object get methods.
+   */
+  return _Objects_Information_table[ the_api ][ 1 ];
+}
 
 /**
  * @brief Gets a thread by its identifier.
  *
- * @see _Objects_Get_isr_disable().
+ * @see _Objects_Get().
  */
-Thread_Control *_Thread_Get_interrupt_disable(
+Thread_Control *_Thread_Get(
   Objects_Id         id,
-  Objects_Locations *location,
   ISR_lock_Context  *lock_context
 );
 
@@ -600,30 +665,6 @@ RTEMS_INLINE_ROUTINE void _Thread_Unblock (
 )
 {
   _Thread_Clear_state( the_thread, STATES_BLOCKED );
-}
-
-/**
- * This routine resets the current context of the calling thread
- * to that of its initial state.
- */
-
-RTEMS_INLINE_ROUTINE void _Thread_Restart_self( Thread_Control *executing )
-{
-#if defined(RTEMS_SMP)
-  ISR_Level level;
-
-  _Giant_Release( _Per_CPU_Get() );
-
-  _ISR_Disable_without_giant( level );
-  ( void ) level;
-#endif
-
-#if ( CPU_HARDWARE_FP == TRUE ) || ( CPU_SOFTWARE_FP == TRUE )
-  if ( executing->fp_context != NULL )
-    _Context_Restore_fp( &executing->fp_context );
-#endif
-
-  _CPU_Context_Restart_self( &executing->Registers );
 }
 
 /**
@@ -825,50 +866,17 @@ RTEMS_INLINE_ROUTINE void _Thread_Action_initialize(
   _Chain_Set_off_chain( &action->Node );
 }
 
-RTEMS_INLINE_ROUTINE Per_CPU_Control *
-  _Thread_Action_ISR_disable_and_acquire_for_executing( ISR_Level *level )
-{
-  Per_CPU_Control *cpu;
-
-  _ISR_Disable_without_giant( *level );
-  cpu = _Per_CPU_Get();
-  _Per_CPU_Acquire( cpu );
-
-  return cpu;
-}
-
-RTEMS_INLINE_ROUTINE Per_CPU_Control *_Thread_Action_ISR_disable_and_acquire(
-  Thread_Control *thread,
-  ISR_Level      *level
-)
-{
-  Per_CPU_Control *cpu;
-
-  _ISR_Disable_without_giant( *level );
-  cpu = _Thread_Get_CPU( thread );
-  _Per_CPU_Acquire( cpu );
-
-  return cpu;
-}
-
-RTEMS_INLINE_ROUTINE void _Thread_Action_release_and_ISR_enable(
-  Per_CPU_Control *cpu,
-  ISR_Level level
-)
-{
-  _Per_CPU_Release_and_ISR_enable( cpu, level );
-}
-
 RTEMS_INLINE_ROUTINE void _Thread_Add_post_switch_action(
-  Thread_Control        *thread,
+  Thread_Control        *the_thread,
   Thread_Action         *action,
   Thread_Action_handler  handler
 )
 {
   Per_CPU_Control *cpu_of_thread;
-  ISR_Level        level;
 
-  cpu_of_thread = _Thread_Action_ISR_disable_and_acquire( thread, &level );
+  _Assert( _Thread_State_is_owner( the_thread ) );
+
+  cpu_of_thread = _Thread_Get_CPU( the_thread );
 
   action->handler = handler;
 
@@ -883,11 +891,9 @@ RTEMS_INLINE_ROUTINE void _Thread_Add_post_switch_action(
 #endif
 
   _Chain_Append_if_is_off_chain_unprotected(
-    &thread->Post_switch_actions.Chain,
+    &the_thread->Post_switch_actions.Chain,
     &action->Node
   );
-
-  _Thread_Action_release_and_ISR_enable( cpu_of_thread, level );
 }
 
 RTEMS_INLINE_ROUTINE bool _Thread_Is_life_restarting(
@@ -904,18 +910,28 @@ RTEMS_INLINE_ROUTINE bool _Thread_Is_life_terminating(
   return ( life_state & THREAD_LIFE_TERMINATING ) != 0;
 }
 
-RTEMS_INLINE_ROUTINE bool _Thread_Is_life_protected(
+RTEMS_INLINE_ROUTINE bool _Thread_Is_life_change_allowed(
   Thread_Life_state life_state
 )
 {
-  return ( life_state & THREAD_LIFE_PROTECTED ) != 0;
+  return ( life_state
+    & ( THREAD_LIFE_PROTECTED | THREAD_LIFE_CHANGE_DEFERRED ) ) == 0;
 }
 
 RTEMS_INLINE_ROUTINE bool _Thread_Is_life_changing(
   Thread_Life_state life_state
 )
 {
-  return ( life_state & THREAD_LIFE_RESTARTING_TERMINATING ) != 0;
+  return ( life_state
+    & ( THREAD_LIFE_RESTARTING | THREAD_LIFE_TERMINATING ) ) != 0;
+}
+
+RTEMS_INLINE_ROUTINE bool _Thread_Is_joinable(
+  const Thread_Control *the_thread
+)
+{
+  _Assert( _Thread_State_is_owner( the_thread ) );
+  return ( the_thread->Life.state & THREAD_LIFE_DETACHED ) == 0;
 }
 
 /**
@@ -1112,21 +1128,16 @@ RTEMS_INLINE_ROUTINE void *_Thread_Lock_acquire(
   SMP_ticket_lock_Control *lock;
 
   while ( true ) {
-    unsigned int first_generation;
-    unsigned int second_generation;
-
     _ISR_lock_ISR_disable( lock_context );
 
     /*
-     * Ensure that we read our first lock generation before we obtain our
-     * current lock.  See _Thread_Lock_set_unprotected().
+     * We assume that a normal load of pointer is identical to a relaxed atomic
+     * load.  Here, we may read an out-of-date lock.  However, only the owner
+     * of this out-of-date lock is allowed to set a new one.  Thus, we read at
+     * least this new lock ...
      */
-    first_generation = _Atomic_Load_uint(
-      &the_thread->Lock.generation,
-      ATOMIC_ORDER_ACQUIRE
-    );
-
     lock = the_thread->Lock.current;
+
     _SMP_ticket_lock_Acquire(
       lock,
       &_Thread_Executing->Lock.Stats,
@@ -1134,24 +1145,16 @@ RTEMS_INLINE_ROUTINE void *_Thread_Lock_acquire(
     );
 
     /*
-     * The C11 memory model doesn't guarantee that we read the latest
-     * generation here.  For this a read-modify-write operation would be
-     * necessary.  We read at least the new generation set up by the owner of
-     * our current thread lock, and so on.
+     * ... here, and so on.
      */
-    second_generation = _Atomic_Load_uint(
-      &the_thread->Lock.generation,
-      ATOMIC_ORDER_ACQUIRE
-    );
-
-    if ( first_generation == second_generation ) {
+    if ( lock == the_thread->Lock.current ) {
       return lock;
     }
 
     _Thread_Lock_release( lock, lock_context );
   }
 #else
-  _ISR_Disable( lock_context->isr_level );
+  _ISR_Local_disable( lock_context->isr_level );
 
   return NULL;
 #endif
@@ -1168,22 +1171,6 @@ RTEMS_INLINE_ROUTINE void _Thread_Lock_set_unprotected(
 )
 {
   the_thread->Lock.current = new_lock;
-
-  /*
-   * The generation release corresponds to the generation acquire in
-   * _Thread_Lock_acquire() and ensures that the new lock and other fields are
-   * visible to the next thread lock owner.  Otherwise someone would be able to
-   * read an up to date generation number and an old lock.  See
-   * _Thread_Wait_set_queue() and _Thread_Wait_restore_default_operations().
-   *
-   * Since we set a new lock right before, this increment is not protected by a
-   * lock and thus must be an atomic operation.
-   */
-  _Atomic_Fetch_add_uint(
-    &the_thread->Lock.generation,
-    1,
-    ATOMIC_ORDER_RELEASE
-  );
 }
 #endif
 
@@ -1366,7 +1353,7 @@ RTEMS_INLINE_ROUTINE bool _Thread_Wait_flags_try_change(
 #if !defined(RTEMS_SMP)
   ISR_Level level;
 
-  _ISR_Disable_without_giant( level );
+  _ISR_Local_disable( level );
 #endif
 
   success = _Thread_Wait_flags_try_change_critical(
@@ -1376,7 +1363,7 @@ RTEMS_INLINE_ROUTINE bool _Thread_Wait_flags_try_change(
   );
 
 #if !defined(RTEMS_SMP)
-  _ISR_Enable_without_giant( level );
+  _ISR_Local_enable( level );
 #endif
 
   return success;
@@ -1435,40 +1422,6 @@ RTEMS_INLINE_ROUTINE void _Thread_Wait_restore_default_operations(
 }
 
 /**
- * @brief Sets the thread wait timeout code.
- *
- * @param[in] the_thread The thread.
- * @param[in] timeout_code The new thread wait timeout code.
- */
-RTEMS_INLINE_ROUTINE void _Thread_Wait_set_timeout_code(
-  Thread_Control *the_thread,
-  uint32_t        timeout_code
-)
-{
-  the_thread->Wait.timeout_code = timeout_code;
-}
-
-/**
- * @brief Helper structure to ensure that all objects containing a thread queue
- * have the right layout.
- *
- * @see _Thread_Wait_get_id() and THREAD_WAIT_QUEUE_OBJECT_ASSERT().
- */
-typedef struct {
-  Objects_Control      Object;
-  Thread_queue_Control Wait_queue;
-} Thread_Wait_queue_object;
-
-#define THREAD_WAIT_QUEUE_OBJECT_ASSERT( object_type, wait_queue_member ) \
-  RTEMS_STATIC_ASSERT( \
-    offsetof( object_type, wait_queue_member ) \
-      == offsetof( Thread_Wait_queue_object, Wait_queue ) \
-    && ( &( ( (object_type *) 0 )->wait_queue_member ) \
-      == ( &( (Thread_Wait_queue_object *) 0 )->Wait_queue ) ), \
-    object_type \
-  )
-
-/**
  * @brief Returns the object identifier of the object containing the current
  * thread wait queue.
  *
@@ -1483,6 +1436,13 @@ typedef struct {
  *   queue.
  */
 Objects_Id _Thread_Wait_get_id( const Thread_Control *the_thread );
+
+RTEMS_INLINE_ROUTINE Status_Control _Thread_Wait_get_status(
+  const Thread_Control *the_thread
+)
+{
+  return (Status_Control) the_thread->Wait.return_code;
+}
 
 /**
  * @brief General purpose thread wait timeout.
@@ -1554,6 +1514,25 @@ RTEMS_INLINE_ROUTINE void _Thread_Timer_remove( Thread_Control *the_thread )
   );
 
   _ISR_lock_Release_and_ISR_enable( &the_thread->Timer.Lock, &lock_context );
+}
+
+RTEMS_INLINE_ROUTINE void _Thread_Remove_timer_and_unblock(
+  Thread_Control     *the_thread,
+  Thread_queue_Queue *queue
+)
+{
+  _Thread_Timer_remove( the_thread );
+
+#if defined(RTEMS_MULTIPROCESSING)
+  if ( _Objects_Is_local_id( the_thread->Object.id ) ) {
+    _Thread_Unblock( the_thread );
+  } else {
+    _Thread_queue_Unblock_proxy( queue, the_thread );
+  }
+#else
+  (void) queue;
+  _Thread_Unblock( the_thread );
+#endif
 }
 
 RTEMS_INLINE_ROUTINE void _Thread_Debug_set_real_processor(

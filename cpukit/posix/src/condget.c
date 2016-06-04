@@ -11,45 +11,20 @@
 #include "config.h"
 #endif
 
-#include <pthread.h>
-#include <errno.h>
-
-#include <rtems/system.h>
-#include <rtems/score/watchdog.h>
 #include <rtems/posix/condimpl.h>
-#include <rtems/posix/muteximpl.h>
+#include <rtems/posix/posixapi.h>
 
-POSIX_Condition_variables_Control *_POSIX_Condition_variables_Get (
-  pthread_cond_t    *cond,
-  Objects_Locations *location
+POSIX_Condition_variables_Control *_POSIX_Condition_variables_Get(
+  pthread_cond_t       *cond,
+  Thread_queue_Context *queue_context
 )
 {
-  int status;
-
-  if ( !cond ) {
-    *location = OBJECTS_ERROR;
-    return (POSIX_Condition_variables_Control *) 0;
-  }
-
-  if ( *cond == PTHREAD_COND_INITIALIZER ) {
-    /*
-     *  Do an "auto-create" here.
-     */
-
-    status = pthread_cond_init( cond, 0 );
-    if ( status ) {
-      *location = OBJECTS_ERROR;
-      return (POSIX_Condition_variables_Control *) 0;
-    }
-  }
-
-  /*
-   *  Now call Objects_Get()
-   */
-  return (POSIX_Condition_variables_Control *)_Objects_Get(
+  _POSIX_Get_object_body(
+    POSIX_Condition_variables_Control,
+    cond,
+    queue_context,
     &_POSIX_Condition_variables_Information,
-    (Objects_Id) *cond,
-    location
+    PTHREAD_COND_INITIALIZER,
+    pthread_cond_init
   );
 }
-

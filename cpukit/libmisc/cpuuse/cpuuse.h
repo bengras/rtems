@@ -1,6 +1,6 @@
 /**
  * @file rtems/cpuuse.h
- * 
+ *
  * @defgroup libmisc_cpuuse CPU Usage
  *
  * @ingroup libmisc
@@ -23,9 +23,7 @@
 #define __RTEMS_CPUUSE_h
 
 #include <rtems.h>
-#include <rtems/bspIo.h>
-
-#include <rtems/score/timestamp.h>
+#include <rtems/print.h>
 
 /**
  *  @defgroup libmisc_cpuuse CPU Usage
@@ -37,16 +35,11 @@
 extern "C" {
 #endif
 
-extern Timestamp_Control  CPU_usage_Uptime_at_last_reset;
-
 /*
  * rtems_cpu_usage_report_with_handler
  */
 
-void rtems_cpu_usage_report_with_plugin(
-  void                  *context,
-  rtems_printk_plugin_t  handler
-);
+void rtems_cpu_usage_report_with_plugin( const rtems_printer *printer );
 
 /**
  *  @brief Report CPU usage.
@@ -62,10 +55,7 @@ void rtems_cpu_usage_report( void );
  *   Report CPU Usage in top format to
  *   to a print plugin.
  */
-void rtems_cpu_usage_top_with_plugin(
-  void                  *context,
-  rtems_printk_plugin_t  print
-);
+void rtems_cpu_usage_top_with_plugin( const rtems_printer *printer );
 
 /**
  *  @brief CPU usage top.
@@ -82,6 +72,13 @@ void rtems_cpu_usage_top( void );
  */
 
 void rtems_cpu_usage_reset( void );
+
+/**
+ * @brief Reports per-processor information.
+ *
+ * @return The number of characters printed.
+ */
+int rtems_cpu_info_report( const rtems_printer *printer );
 
 #ifdef __cplusplus
 }

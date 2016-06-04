@@ -145,11 +145,6 @@ bool _Thread_Initialize(
   }
   _Thread_queue_Heads_initialize( the_thread->Wait.spare_heads );
 
-  #ifdef __RTEMS_STRICT_ORDER_MUTEX__
-    /* Initialize the head of chain of held mutexes */
-    _Chain_Initialize_empty(&the_thread->lock_mutex);
-  #endif
-
   /*
    *  General initialization
    */
@@ -195,6 +190,8 @@ bool _Thread_Initialize(
   /* Initialize the CPU for the non-SMP schedulers */
   _Thread_Set_CPU( the_thread, cpu );
 
+  _Thread_queue_Initialize( &the_thread->Join_queue );
+
   the_thread->current_state           = STATES_DORMANT;
   the_thread->Wait.operations         = &_Thread_queue_Operations_default;
   the_thread->current_priority        = priority;
@@ -213,8 +210,6 @@ bool _Thread_Initialize(
   _ISR_lock_Initialize( &the_thread->Keys.Lock, "POSIX Key Value Pairs" );
 
   _Thread_Action_control_initialize( &the_thread->Post_switch_actions );
-
-  RTEMS_STATIC_ASSERT( THREAD_LIFE_NORMAL == 0, Life_state );
 
   /*
    *  Open the object

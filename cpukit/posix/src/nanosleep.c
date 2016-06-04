@@ -93,7 +93,7 @@ int nanosleep(
     executing,
     STATES_DELAYING | STATES_INTERRUPTIBLE_BY_SIGNAL,
     ticks,
-    0
+    1
   );
 
   /*

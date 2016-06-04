@@ -22,15 +22,15 @@
 #include <rtems/rtems/signalimpl.h>
 #include <rtems/rtems/asrimpl.h>
 #include <rtems/rtems/tasks.h>
-#include <rtems/score/isrlevel.h>
-#include <rtems/score/threaddispatch.h>
+#include <rtems/score/assert.h>
 #include <rtems/score/threadimpl.h>
 
+RTEMS_STATIC_ASSERT( RTEMS_DEFAULT_MODES == 0, _ASR_Create_mode_set );
+
 void _Signal_Action_handler(
-  Thread_Control  *executing,
-  Thread_Action   *action,
-  Per_CPU_Control *cpu,
-  ISR_Level        level
+  Thread_Control   *executing,
+  Thread_Action    *action,
+  ISR_lock_Context *lock_context
 )
 {
   RTEMS_API_Control *api;
@@ -39,21 +39,20 @@ void _Signal_Action_handler(
   Modes_Control      prev_mode;
 
   (void) action;
-  _Thread_Action_release_and_ISR_enable( cpu, level );
-
-  api = executing->API_Extensions[ THREAD_API_RTEMS ];
-  if ( !api )
-    return;
 
   /*
    *  Signal Processing
    */
 
+  api = executing->API_Extensions[ THREAD_API_RTEMS ];
   asr = &api->Signal;
   signal_set = _ASR_Get_posted_signals( asr );
 
-  if ( !signal_set ) /* similar to _ASR_Are_signals_pending( asr ) */
+  _Thread_State_release( executing, lock_context );
+
+  if ( signal_set == 0 ) {
     return;
+  }
 
   asr->nest_level += 1;
   rtems_task_mode( asr->mode_set, RTEMS_ALL_MODE_MASKS, &prev_mode );
@@ -74,11 +73,9 @@ rtems_status_code rtems_signal_catch(
   ASR_Information    *asr;
   ISR_lock_Context    lock_context;
 
-  executing = _Thread_Get_executing();
-  api = (RTEMS_API_Control*)executing->API_Extensions[ THREAD_API_RTEMS ];
+  executing = _Thread_State_acquire_for_executing( &lock_context );
+  api = executing->API_Extensions[ THREAD_API_RTEMS ];
   asr = &api->Signal;
-
-  _ASR_Acquire( asr, &lock_context );
 
   if ( !_ASR_Is_null_handler( asr_handler ) ) {
     asr->mode_set = mode_set;
@@ -87,7 +84,7 @@ rtems_status_code rtems_signal_catch(
     _ASR_Initialize( asr );
   }
 
-  _ASR_Release( asr, &lock_context );
+  _Thread_State_release( executing, &lock_context );
   return RTEMS_SUCCESSFUL;
 }
 

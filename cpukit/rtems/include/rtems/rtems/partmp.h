@@ -64,6 +64,11 @@ typedef struct {
   Objects_Id                      proxy_id;
 }   Partition_MP_Packet;
 
+RTEMS_INLINE_ROUTINE bool _Partition_MP_Is_remote( Objects_Id id )
+{
+  return _Objects_MP_Is_remote( id, &_Partition_Information );
+}
+
 /**
  *  @brief Partition_MP_Send_process_packet
  *
@@ -80,27 +85,19 @@ void _Partition_MP_Send_process_packet (
 );
 
 /**
- *  @brief Partition_MP_Send_request_packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive operation can be initiated on another node.
+ * @brief Issues a remote rtems_partition_get_buffer() request.
  */
-rtems_status_code _Partition_MP_Send_request_packet (
-  Partition_MP_Remote_operations  operation,
-  Objects_Id                      partition_id,
-  void                           *buffer
+rtems_status_code _Partition_MP_Get_buffer(
+  rtems_id   id,
+  void     **buffer
 );
 
 /**
- *  @brief Partition_MP_Send_response_packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive can be performed on another node.
+ * @brief Issues a remote rtems_partition_return_buffer() request.
  */
-void _Partition_MP_Send_response_packet (
-  Partition_MP_Remote_operations  operation,
-  Objects_Id                      partition_id,
-  Thread_Control                 *the_thread
+rtems_status_code _Partition_MP_Return_buffer(
+  rtems_id  id,
+  void     *buffer
 );
 
 /**
@@ -136,13 +133,6 @@ void _Partition_MP_Send_extract_proxy (
   Thread_Control *the_thread,
   Objects_Id      id
 );
-
-/**
- *  @brief Partition_MP_Get_packet
- *
- *  This function is used to obtain a partition mp packet.
- */
-Partition_MP_Packet *_Partition_MP_Get_packet ( void );
 
 #ifdef __cplusplus
 }

@@ -18,53 +18,14 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
 #include <rtems/config.h>
 #include <rtems/sysinit.h>
-#include <rtems/rtems/asrimpl.h>
 #include <rtems/rtems/eventimpl.h>
-#include <rtems/rtems/signalimpl.h>
-#include <rtems/rtems/status.h>
-#include <rtems/rtems/support.h>
-#include <rtems/rtems/modes.h>
 #include <rtems/rtems/tasksimpl.h>
-#include <rtems/score/stack.h>
 #include <rtems/score/threadimpl.h>
 #include <rtems/score/userextimpl.h>
-#include <rtems/score/wkspace.h>
 
 Thread_Information _RTEMS_tasks_Information;
-
-/*
- *  _RTEMS_tasks_Create_extension
- *
- *  This routine is an extension routine that is invoked as part
- *  of creating any type of task or thread in the system.  If the
- *  task is created via another API, then this routine is invoked
- *  and this API given the opportunity to initialize its extension
- *  area.
- */
-
-static bool _RTEMS_tasks_Create_extension(
-  Thread_Control *executing,
-  Thread_Control *created
-)
-{
-  RTEMS_API_Control *api;
-
-  api = created->API_Extensions[ THREAD_API_RTEMS ];
-
-  _ASR_Create( &api->Signal );
-
-  return true;
-}
-
-/*
- *  _RTEMS_tasks_Start_extension
- *
- *  This extension routine is invoked when a task is started for the
- *  first time.
- */
 
 static void _RTEMS_tasks_Start_extension(
   Thread_Control *executing,
@@ -79,99 +40,30 @@ static void _RTEMS_tasks_Start_extension(
   _Event_Initialize( &api->System_event );
 }
 
-static void _RTEMS_tasks_Delete_extension(
-  Thread_Control *executing,
-  Thread_Control *deleted
-)
+#if defined(RTEMS_MULTIPROCESSING)
+static void _RTEMS_tasks_Terminate_extension( Thread_Control *executing )
 {
-  RTEMS_API_Control *api;
-
-  api = deleted->API_Extensions[ THREAD_API_RTEMS ];
-
-  _ASR_Destroy( &api->Signal );
-}
-
-static void _RTEMS_tasks_Terminate_extension(
-  Thread_Control *executing
-)
-{
-  /*
-   *  Free per task variable memory
-   *
-   *  Per Task Variables are only enabled in uniprocessor configurations.
-   */
-  #if !defined(RTEMS_SMP)
-    /*
-     * We know this is deprecated and don't want a warning on every BSP built.
-     */
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    do { 
-      rtems_task_variable_t *tvp, *next;
-
-      tvp = executing->task_variables;
-      executing->task_variables = NULL;
-      while (tvp) {
-	next = (rtems_task_variable_t *)tvp->next;
-	_RTEMS_Tasks_Invoke_task_variable_dtor( executing, tvp );
-	tvp = next;
-      }
-    } while (0);
-    #pragma GCC diagnostic pop
-  #endif
-}
-
-#if !defined(RTEMS_SMP)
-/*
- *  _RTEMS_tasks_Switch_extension
- *
- *  This extension routine is invoked at each context switch.
- *
- *  @note Since this only needs to address per-task variables, it is
- *        disabled entirely for SMP configurations.
- */
-static void _RTEMS_tasks_Switch_extension(
-  Thread_Control *executing,
-  Thread_Control *heir
-)
-{
-  rtems_task_variable_t *tvp;
-
-  /*
-   *  Per Task Variables are only enabled in uniprocessor configurations
-   */
-
-  tvp = executing->task_variables;
-  while (tvp) {
-    tvp->tval = *tvp->ptr;
-    *tvp->ptr = tvp->gval;
-    tvp = (rtems_task_variable_t *)tvp->next;
-  }
-
-  tvp = heir->task_variables;
-  while (tvp) {
-    tvp->gval = *tvp->ptr;
-    *tvp->ptr = tvp->tval;
-    tvp = (rtems_task_variable_t *)tvp->next;
+  if ( executing->is_global ) {
+    _Objects_MP_Close(
+      &_RTEMS_tasks_Information.Objects,
+      executing->Object.id
+    );
+    _RTEMS_tasks_MP_Send_process_packet(
+      RTEMS_TASKS_MP_ANNOUNCE_DELETE,
+      executing->Object.id,
+      0                                /* Not used */
+    );
   }
 }
-#define RTEMS_TASKS_SWITCH_EXTENSION _RTEMS_tasks_Switch_extension
-#else 
-#define RTEMS_TASKS_SWITCH_EXTENSION NULL
 #endif
 
 User_extensions_Control _RTEMS_tasks_User_extensions = {
-  { NULL, NULL },
-  { { NULL, NULL }, RTEMS_TASKS_SWITCH_EXTENSION },
-  { _RTEMS_tasks_Create_extension,            /* create */
-    _RTEMS_tasks_Start_extension,             /* start */
-    _RTEMS_tasks_Start_extension,             /* restart */
-    _RTEMS_tasks_Delete_extension,            /* delete */
-    RTEMS_TASKS_SWITCH_EXTENSION,             /* switch */
-    NULL,                                     /* begin */
-    NULL,                                     /* exitted */
-    NULL,                                     /* fatal */
-    _RTEMS_tasks_Terminate_extension          /* terminate */
+  .Callouts = {
+#if defined(RTEMS_MULTIPROCESSING)
+    .thread_terminate = _RTEMS_tasks_Terminate_extension,
+#endif
+    .thread_start     = _RTEMS_tasks_Start_extension,
+    .thread_restart   = _RTEMS_tasks_Start_extension
   }
 };
 
@@ -185,10 +77,6 @@ static void _RTEMS_tasks_Manager_initialization(void)
                                /* maximum objects of this class */
     false,                     /* true if the name is a string */
     RTEMS_MAXIMUM_NAME_LENGTH  /* maximum length of an object name */
-#if defined(RTEMS_MULTIPROCESSING)
-    ,
-    true                       /* true if this is a global object class */
-#endif
   );
 
   /*

@@ -15,6 +15,7 @@
 #include <semaphore.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <time.h>
 #include <tmacros.h>
 #include <pmacros.h>
@@ -26,6 +27,98 @@ const char rtems_test_name[] = "PSXSEM 1";
 void *POSIX_Init(void *argument);
 
 #define MAX_SEMS  10
+
+static void *sem_wait_task(void *arg)
+{
+  sem_t *sem;
+  int    rv;
+
+  sem = arg;
+
+  rv = sem_wait( sem );
+  rtems_test_assert( rv == 0 );
+
+  errno = 0;
+  rv = sem_wait( sem );
+  rtems_test_assert( rv == -1 );
+  rtems_test_assert( errno == EINVAL );
+
+  return NULL;
+}
+
+static void test_sem_wait_during_delete(void)
+{
+  sem_t     sem;
+  int       rv;
+  pthread_t th;
+  int       eno;
+  int       val;
+
+  rv = sem_init( &sem, 0, 1 );
+  rtems_test_assert( rv == 0 );
+
+  eno = pthread_create( &th, NULL, sem_wait_task, &sem );
+  rtems_test_assert( eno == 0 );
+
+  rv = sem_getvalue( &sem, &val );
+  rtems_test_assert( rv == 0 );
+  rtems_test_assert( val == 1 );
+
+  sched_yield();
+
+  rv = sem_getvalue( &sem, &val );
+  rtems_test_assert( rv == 0 );
+  rtems_test_assert( val == 0 );
+
+  rv = sem_destroy( &sem );
+  rtems_test_assert( rv == 0 );
+
+  eno = pthread_join( th, NULL );
+  rtems_test_assert( eno == 0 );
+}
+
+static void test_sem_post_overflow(void)
+{
+  sem_t sem;
+  int   rv;
+  int   val;
+
+  rv = sem_init( &sem, 0, SEM_VALUE_MAX );
+  rtems_test_assert( rv == 0 );
+
+  rv = sem_getvalue( &sem, &val );
+  rtems_test_assert( rv == 0 );
+  rtems_test_assert( val == (int) SEM_VALUE_MAX );
+
+  errno = 0;
+  rv = sem_post( &sem );
+  rtems_test_assert( rv == -1 );
+  rtems_test_assert( errno == EOVERFLOW );
+
+  rv = sem_getvalue( &sem, &val );
+  rtems_test_assert( rv == 0 );
+  rtems_test_assert( val == (int) SEM_VALUE_MAX );
+
+  rv = sem_wait( &sem );
+  rtems_test_assert( rv == 0 );
+
+  rv = sem_post( &sem );
+  rtems_test_assert( rv == 0 );
+
+  rv = sem_destroy( &sem );
+  rtems_test_assert( rv == 0 );
+}
+
+static void test_sem_init_too_large_inital_value(void)
+{
+  sem_t sem;
+  int   rv;
+
+  errno = 0;
+  rv = sem_init( &sem, 0, SEM_VALUE_MAX + 1 );
+  rtems_test_assert( rv == -1 );
+  rtems_test_assert( errno == EINVAL );
+}
 
 void *POSIX_Init(
   void *argument
@@ -295,6 +388,9 @@ void *POSIX_Init(
   fatal_posix_service_status( errno, ENOENT, "sem_unlink errno ENOENT");
   rtems_test_assert( (status == -1) && (errno == ENOENT) );
 
+  test_sem_wait_during_delete();
+  test_sem_post_overflow();
+  test_sem_init_too_large_inital_value();
 
   /* Try adding in unlinking before closing... (can we still open?) */
 
@@ -312,7 +408,7 @@ void *POSIX_Init(
 
 #define CONFIGURE_INITIAL_EXTENSIONS RTEMS_TEST_INITIAL_EXTENSION
 
-#define CONFIGURE_MAXIMUM_POSIX_THREADS     1
+#define CONFIGURE_MAXIMUM_POSIX_THREADS     2
 #define CONFIGURE_MAXIMUM_POSIX_SEMAPHORES  MAX_SEMS
 
 #define CONFIGURE_POSIX_INIT_THREAD_TABLE

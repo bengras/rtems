@@ -20,9 +20,8 @@
 #define _RTEMS_SCORE_COREBARRIERIMPL_H
 
 #include <rtems/score/corebarrier.h>
-#include <rtems/score/thread.h>
+#include <rtems/score/status.h>
 #include <rtems/score/threadqimpl.h>
-#include <rtems/score/watchdog.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,35 +31,6 @@ extern "C" {
  * @addtogroup ScoreBarrier
  */
 /**@{**/
-
-/**
- *  Core Barrier handler return statuses.
- */
-typedef enum {
-  /** This status indicates that the operation completed successfully. */
-  CORE_BARRIER_STATUS_SUCCESSFUL,
-  /** This status indicates that the barrier is configured for automatic
-   *  release and the caller tripped the automatic release.  The caller
-   *  thus did not block.
-   */
-  CORE_BARRIER_STATUS_AUTOMATICALLY_RELEASED,
-  /** This status indicates that the thread was blocked waiting for an
-   *  operation to complete and the barrier was deleted.
-   */
-  CORE_BARRIER_WAS_DELETED,
-  /** This status indicates that the calling task was willing to block
-   *  but the operation was unable to complete within the time allotted
-   *  because the resource never became available.
-   */
-  CORE_BARRIER_TIMEOUT
-}   CORE_barrier_Status;
-
-/**
- *  @brief Core barrier last status value.
- *
- *  This is the last status value.
- */
-#define CORE_BARRIER_STATUS_LAST CORE_BARRIER_TIMEOUT
 
 #define CORE_BARRIER_TQ_OPERATIONS &_Thread_queue_Operations_FIFO
 
@@ -84,17 +54,27 @@ RTEMS_INLINE_ROUTINE void _CORE_barrier_Destroy(
   _Thread_queue_Destroy( &the_barrier->Wait_queue );
 }
 
-void _CORE_barrier_Do_wait(
-  CORE_barrier_Control    *the_barrier,
-  Thread_Control          *executing,
-  bool                     wait,
-  Watchdog_Interval        timeout
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  Thread_queue_MP_callout  mp_callout,
-  Objects_Id               mp_id
-#endif
-);
+RTEMS_INLINE_ROUTINE void _CORE_barrier_Acquire_critical(
+  CORE_barrier_Control *the_barrier,
+  Thread_queue_Context *queue_context
+)
+{
+  _Thread_queue_Acquire_critical(
+    &the_barrier->Wait_queue,
+    &queue_context->Lock_context
+  );
+}
+
+RTEMS_INLINE_ROUTINE void _CORE_barrier_Release(
+  CORE_barrier_Control *the_barrier,
+  Thread_queue_Context *queue_context
+)
+{
+  _Thread_queue_Release(
+    &the_barrier->Wait_queue,
+    &queue_context->Lock_context
+  );
+}
 
 /**
  *  @brief Wait for the barrier.
@@ -111,51 +91,21 @@ void _CORE_barrier_Do_wait(
  *         to wait if @a wait is true.
  *  @param[in] mp_callout is the routine to invoke if the
  *         thread unblocked is remote
- *  @param[in] mp_id is the id of the object being waited upon
  *
- * @note Status is returned via the thread control block.
+ * @return The method status.
  */
-#if defined(RTEMS_MULTIPROCESSING)
-  #define _CORE_barrier_Wait( \
-    the_barrier, \
-    executing, \
-    wait, \
-    timeout, \
-    mp_callout, \
-    mp_id \
-  ) \
-    _CORE_barrier_Do_wait( \
-      the_barrier, \
-      executing, \
-      wait, \
-      timeout, \
-      mp_callout, \
-      mp_id \
-    )
-#else
-  #define _CORE_barrier_Wait( \
-    the_barrier, \
-    executing, \
-    wait, \
-    timeout, \
-    mp_callout, \
-    mp_id \
-  ) \
-    _CORE_barrier_Do_wait( \
-      the_barrier, \
-      executing, \
-      wait, \
-      timeout \
-    )
-#endif
+Status_Control _CORE_barrier_Seize(
+  CORE_barrier_Control *the_barrier,
+  Thread_Control       *executing,
+  bool                  wait,
+  Watchdog_Interval     timeout,
+  Thread_queue_Context *queue_context
+);
 
-uint32_t _CORE_barrier_Do_release(
-  CORE_barrier_Control    *the_barrier
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  Thread_queue_MP_callout  mp_callout,
-  Objects_Id               mp_id
-#endif
+uint32_t _CORE_barrier_Do_flush(
+  CORE_barrier_Control      *the_barrier,
+  Thread_queue_Flush_filter  filter,
+  Thread_queue_Context      *queue_context
 );
 
 /**
@@ -167,46 +117,32 @@ uint32_t _CORE_barrier_Do_release(
  *  @param[in] the_barrier is the barrier to surrender
  *  @param[in] mp_callout is the routine to invoke if the
  *         thread unblocked is remote
- *  @param[in] mp_id is the id of the object for a remote unblock
  *
  *  @retval the number of unblocked threads
  */
-#if defined(RTEMS_MULTIPROCESSING)
-  #define _CORE_barrier_Release( \
-    the_barrier, \
-    mp_callout, \
-    mp_id \
-  ) \
-    _CORE_barrier_Do_release( \
-      the_barrier, \
-      mp_callout, \
-      mp_id \
-    )
-#else
-  #define _CORE_barrier_Release( \
-    the_barrier, \
-    mp_callout, \
-    mp_id \
-  ) \
-    _CORE_barrier_Do_release( \
-      the_barrier \
-    )
-#endif
+RTEMS_INLINE_ROUTINE uint32_t _CORE_barrier_Surrender(
+  CORE_barrier_Control *the_barrier,
+  Thread_queue_Context *queue_context
+)
+{
+  return _CORE_barrier_Do_flush(
+    the_barrier,
+    _Thread_queue_Flush_default_filter,
+    queue_context
+  );
+}
 
-/* Must be a macro due to the multiprocessing dependent parameters */
-#define _CORE_barrier_Flush( \
-  the_barrier, \
-  status, \
-  mp_callout, \
-  mp_id \
-) \
-  _Thread_queue_Flush( \
-    &( the_barrier )->Wait_queue, \
-    CORE_BARRIER_TQ_OPERATIONS, \
-    status, \
-    mp_callout, \
-    mp_id \
-  )
+RTEMS_INLINE_ROUTINE void _CORE_barrier_Flush(
+  CORE_barrier_Control *the_barrier,
+  Thread_queue_Context *queue_context
+)
+{
+  _CORE_barrier_Do_flush(
+    the_barrier,
+    _Thread_queue_Flush_status_object_was_deleted,
+    queue_context
+  );
+}
 
 /**
  * This function returns true if the automatic release attribute is

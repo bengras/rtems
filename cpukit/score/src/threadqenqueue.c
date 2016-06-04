@@ -22,6 +22,7 @@
 #include <rtems/score/assert.h>
 #include <rtems/score/threaddispatch.h>
 #include <rtems/score/threadimpl.h>
+#include <rtems/score/status.h>
 #include <rtems/score/watchdogimpl.h>
 
 #define THREAD_QUEUE_INTEND_TO_BLOCK \
@@ -39,8 +40,7 @@ void _Thread_queue_Enqueue_critical(
   Thread_Control                *the_thread,
   States_Control                 state,
   Watchdog_Interval              timeout,
-  uint32_t                       timeout_code,
-  ISR_lock_Context              *lock_context
+  Thread_queue_Context          *queue_context
 )
 {
   Per_CPU_Control *cpu_self;
@@ -54,14 +54,26 @@ void _Thread_queue_Enqueue_critical(
 
   _Thread_Lock_set( the_thread, &queue->Lock );
 
+  the_thread->Wait.return_code = STATUS_SUCCESSFUL;
   _Thread_Wait_set_queue( the_thread, queue );
   _Thread_Wait_set_operations( the_thread, operations );
 
   ( *operations->enqueue )( queue, the_thread );
 
   _Thread_Wait_flags_set( the_thread, THREAD_QUEUE_INTEND_TO_BLOCK );
-  cpu_self = _Thread_Dispatch_disable_critical( lock_context );
-  _Thread_queue_Queue_release( queue, lock_context );
+  cpu_self = _Thread_Dispatch_disable_critical( &queue_context->Lock_context );
+  _Thread_queue_Queue_release( queue, &queue_context->Lock_context );
+
+  if (
+    cpu_self->thread_dispatch_disable_level
+      != queue_context->expected_thread_dispatch_disable_level
+  ) {
+    _Terminate(
+      INTERNAL_ERROR_CORE,
+      false,
+      INTERNAL_ERROR_THREAD_QUEUE_ENQUEUE_FROM_BAD_STATE
+    );
+  }
 
   /*
    *  Set the blocking state for this thread queue in the thread.
@@ -72,7 +84,6 @@ void _Thread_queue_Enqueue_critical(
    *  If the thread wants to timeout, then schedule its timer.
    */
   if ( timeout != WATCHDOG_NO_TIMEOUT ) {
-    _Thread_Wait_set_timeout_code( the_thread, timeout_code );
     _Thread_Timer_insert_relative(
       the_thread,
       cpu_self,
@@ -87,25 +98,7 @@ void _Thread_queue_Enqueue_critical(
     THREAD_QUEUE_BLOCKED
   );
   if ( !success ) {
-    _Thread_Timer_remove( the_thread );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    if ( _Objects_Is_local_id( the_thread->Object.id ) ) {
-      _Thread_Unblock( the_thread );
-    } else {
-      Thread_Proxy_control *the_proxy;
-
-      the_proxy = (Thread_Proxy_control *) the_thread;
-      ( *the_proxy->thread_queue_callout )(
-        the_thread,
-        the_proxy->thread_queue_id
-      );
-
-      _Thread_MP_Free_proxy( the_thread );
-    }
-#else
-    _Thread_Unblock( the_thread );
-#endif
+    _Thread_Remove_timer_and_unblock( the_thread, queue );
   }
 
   _Thread_Dispatch_enable( cpu_self );
@@ -117,8 +110,7 @@ bool _Thread_queue_Do_extract_locked(
   Thread_Control                *the_thread
 #if defined(RTEMS_MULTIPROCESSING)
   ,
-  Thread_queue_MP_callout        mp_callout,
-  Objects_Id                     mp_id
+  const Thread_queue_Context    *queue_context
 #endif
 )
 {
@@ -127,13 +119,13 @@ bool _Thread_queue_Do_extract_locked(
 
 #if defined(RTEMS_MULTIPROCESSING)
   if ( !_Objects_Is_local_id( the_thread->Object.id ) ) {
-    Thread_Proxy_control *the_proxy;
-
-    _Assert( mp_callout != NULL );
+    Thread_Proxy_control    *the_proxy;
+    Thread_queue_MP_callout  mp_callout;
 
     the_proxy = (Thread_Proxy_control *) the_thread;
-    the_proxy->thread_queue_callout = mp_callout;
-    the_proxy->thread_queue_id = mp_id;
+    mp_callout = queue_context->mp_callout;
+    _Assert( mp_callout != NULL );
+    the_proxy->thread_queue_callout = queue_context->mp_callout;
   }
 #endif
 
@@ -163,15 +155,11 @@ bool _Thread_queue_Do_extract_locked(
   return unblock;
 }
 
-void _Thread_queue_Do_unblock_critical(
-  bool                     unblock,
-  Thread_queue_Queue      *queue,
-  Thread_Control          *the_thread,
-#if defined(RTEMS_MULTIPROCESSING)
-  Thread_queue_MP_callout  mp_callout,
-  Objects_Id               mp_id,
-#endif
-  ISR_lock_Context        *lock_context
+void _Thread_queue_Unblock_critical(
+  bool                unblock,
+  Thread_queue_Queue *queue,
+  Thread_Control     *the_thread,
+  ISR_lock_Context   *lock_context
 )
 {
   if ( unblock ) {
@@ -180,18 +168,7 @@ void _Thread_queue_Do_unblock_critical(
     cpu_self = _Thread_Dispatch_disable_critical( lock_context );
     _Thread_queue_Queue_release( queue, lock_context );
 
-    _Thread_Timer_remove( the_thread );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    if ( _Objects_Is_local_id( the_thread->Object.id ) ) {
-      _Thread_Unblock( the_thread );
-    } else {
-      ( *mp_callout )( the_thread, mp_id );
-      _Thread_MP_Free_proxy( the_thread );
-    }
-#else
-    _Thread_Unblock( the_thread );
-#endif
+    _Thread_Remove_timer_and_unblock( the_thread, queue );
 
     _Thread_Dispatch_enable( cpu_self );
   } else {
@@ -199,15 +176,11 @@ void _Thread_queue_Do_unblock_critical(
   }
 }
 
-void _Thread_queue_Do_extract_critical(
+void _Thread_queue_Extract_critical(
   Thread_queue_Queue            *queue,
   const Thread_queue_Operations *operations,
   Thread_Control                *the_thread,
-#if defined(RTEMS_MULTIPROCESSING)
-  Thread_queue_MP_callout        mp_callout,
-  Objects_Id                     mp_id,
-#endif
-  ISR_lock_Context              *lock_context
+  Thread_queue_Context          *queue_context
 )
 {
   bool unblock;
@@ -216,43 +189,43 @@ void _Thread_queue_Do_extract_critical(
     queue,
     operations,
     the_thread,
-    mp_callout,
-    mp_id
+    queue_context
   );
 
   _Thread_queue_Unblock_critical(
     unblock,
     queue,
     the_thread,
-    mp_callout,
-    mp_id,
-    lock_context
+    &queue_context->Lock_context
   );
 }
 
 void _Thread_queue_Extract( Thread_Control *the_thread )
 {
-  ISR_lock_Context    lock_context;
-  void               *lock;
-  Thread_queue_Queue *queue;
+  Thread_queue_Context  queue_context;
+  void                 *lock;
+  Thread_queue_Queue   *queue;
 
-  lock = _Thread_Lock_acquire( the_thread, &lock_context );
+  _Thread_queue_Context_initialize( &queue_context );
+  lock = _Thread_Lock_acquire( the_thread, &queue_context.Lock_context );
 
   queue = the_thread->Wait.queue;
 
   if ( queue != NULL ) {
     _SMP_Assert( lock == &queue->Lock );
 
+    _Thread_queue_Context_set_MP_callout(
+      &queue_context,
+      _Thread_queue_MP_callout_do_nothing
+    );
     _Thread_queue_Extract_critical(
       queue,
       the_thread->Wait.operations,
       the_thread,
-      _Thread_queue_MP_callout_do_nothing,
-      0,
-      &lock_context
+      &queue_context
     );
   } else {
-    _Thread_Lock_release( lock, &lock_context );
+    _Thread_Lock_release( lock, &queue_context.Lock_context );
   }
 }
 
@@ -261,15 +234,16 @@ Thread_Control *_Thread_queue_Do_dequeue(
   const Thread_queue_Operations *operations
 #if defined(RTEMS_MULTIPROCESSING)
   ,
-  Thread_queue_MP_callout        mp_callout,
-  Objects_Id                     mp_id
+  Thread_queue_MP_callout        mp_callout
 #endif
 )
 {
-  ISR_lock_Context  lock_context;
-  Thread_Control   *the_thread;
+  Thread_queue_Context  queue_context;
+  Thread_Control       *the_thread;
 
-  _Thread_queue_Acquire( the_thread_queue, &lock_context );
+  _Thread_queue_Context_initialize( &queue_context );
+  _Thread_queue_Context_set_MP_callout( &queue_context, mp_callout );
+  _Thread_queue_Acquire( the_thread_queue, &queue_context.Lock_context );
 
   the_thread = _Thread_queue_First_locked( the_thread_queue, operations );
 
@@ -280,13 +254,30 @@ Thread_Control *_Thread_queue_Do_dequeue(
       &the_thread_queue->Queue,
       operations,
       the_thread,
-      mp_callout,
-      mp_id,
-      &lock_context
+      &queue_context
     );
   } else {
-    _Thread_queue_Release( the_thread_queue, &lock_context );
+    _Thread_queue_Release( the_thread_queue, &queue_context.Lock_context );
   }
 
   return the_thread;
 }
+
+#if defined(RTEMS_MULTIPROCESSING)
+void _Thread_queue_Unblock_proxy(
+  Thread_queue_Queue *queue,
+  Thread_Control     *the_thread
+)
+{
+  const Thread_queue_Object *the_queue_object;
+  Thread_Proxy_control      *the_proxy;
+  Thread_queue_MP_callout    mp_callout;
+
+  the_queue_object = THREAD_QUEUE_QUEUE_TO_OBJECT( queue );
+  the_proxy = (Thread_Proxy_control *) the_thread;
+  mp_callout = the_proxy->thread_queue_callout;
+  ( *mp_callout )( the_thread, the_queue_object->Object.id );
+
+  _Thread_MP_Free_proxy( the_thread );
+}
+#endif

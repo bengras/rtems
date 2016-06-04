@@ -9,6 +9,7 @@ Init: mq_open - SUCCESSFUL
 Init: mq_open - system is out of resources (ENFILE)
 Init: mq_close and mq_unlink (mq3...mqn) - SUCCESSFUL
 Init: Open Test Queues
+_______________verify_blocking_mq_timedsend
 _______________mq_unlink errors
 Init: mq_unlink - mq_unlink with too long of a name (ENAMETOOLONG)
 Init: mq_unlink - A Queue not opened  (ENOENT)
@@ -52,6 +53,7 @@ Init: Init: mq_timedreceive - on queue Qnoblock Init: 0 sec 128 us
 Init: Init: mq_timedreceive - on queue Qblock Init: 1 sec -715 us
 Init: Init: mq_timedreceive - on queue Qdefault Init: 1 sec -1836 us
 _______________mq_open functionality
+Init: mq_open - Open an existing mq ( same id )
 _______________mq_notify
 Init: mq_notify - Unopened message queue (EBADF)
 _____mq_notify - notify when Qnoblock gets a message

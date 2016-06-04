@@ -46,13 +46,13 @@ typedef struct {
   /**
    * Contains the SuperCore mutex information.
    */
-  CORE_mutex_Control Mutex;
+  CORE_recursive_mutex_Control Mutex;
 
   /**
    * @brief The thread life protection state before the outer-most mutex
    * obtain.
    */
-  bool previous_thread_life_protection;
+  Thread_Life_state previous_thread_life_state;
 } API_Mutex_Control;
 
 /**

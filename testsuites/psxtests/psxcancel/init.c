@@ -15,10 +15,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sched.h>
+#include <semaphore.h>
 
 #if defined(__rtems__)
   #include <rtems.h>
-  #include <bsp.h>
+  #include <rtems/libcsupport.h>
   #include <pmacros.h>
 #endif
 
@@ -26,18 +27,23 @@ const char rtems_test_name[] = "PSXCANCEL";
 
 /* forward declarations to avoid warnings */
 void *POSIX_Init(void *argument);
-void countTask_cancel_handler(void *ignored);
-void *countTaskDeferred(void *ignored);
-void *countTaskAsync(void *ignored);
 
-volatile bool countTask_handler;
+#if defined(__rtems__)
+static rtems_resource_snapshot initialSnapshot;
+#endif
 
-void countTask_cancel_handler(void *ignored)
+static volatile bool countTask_handler;
+
+static sem_t masterSem;
+
+static sem_t workerSem;
+
+static void countTask_cancel_handler(void *ignored)
 {
   countTask_handler = true;
 }
 
-void *countTaskDeferred(void *ignored)
+static void *countTaskDeferred(void *ignored)
 {
   int i=0;
   int type,state;
@@ -56,7 +62,7 @@ void *countTaskDeferred(void *ignored)
   }
 }
 
-void *countTaskAsync(void *ignored)
+static void *countTaskAsync(void *ignored)
 {
   int i=0;
   int type,state;
@@ -81,6 +87,51 @@ void *countTaskAsync(void *ignored)
   }
 }
 
+static void *taskAsyncAndDetached(void *ignored)
+{
+  int sc;
+
+  sc = pthread_setcanceltype( PTHREAD_CANCEL_ASYNCHRONOUS, NULL );
+  fatal_posix_service_status( sc, 0, "cancel type taskAsyncAndDetached" );
+
+  sc = sem_post( &workerSem );
+  rtems_test_assert( sc == 0 );
+
+  sc = sem_wait( &masterSem );
+  rtems_test_assert( sc == 0 );
+
+  rtems_test_assert( 0 );
+}
+
+static void *taskSelfDetach(void *ignored)
+{
+  int sc;
+
+  sc = sem_post( &workerSem );
+  rtems_test_assert( sc == 0 );
+
+  sleep( 1 );
+
+  sc = pthread_detach( pthread_self() );
+  fatal_posix_service_status( sc, 0, "detach taskSelfDetach" );
+
+  pthread_exit( (void *) 123 );
+}
+
+static void resourceSnapshotInit( void )
+{
+#if defined(__rtems__)
+  rtems_resource_snapshot_take( &initialSnapshot );
+#endif
+}
+
+static void resourceSnapshotCheck( void )
+{
+#if defined(__rtems__)
+  rtems_test_assert( rtems_resource_snapshot_check( &initialSnapshot ) );
+#endif
+}
+
 #if defined(__rtems__)
   void *POSIX_Init(void *ignored)
 #else
@@ -91,8 +142,17 @@ void *countTaskAsync(void *ignored)
   int       taskparameter = 0;
   int       sc;
   int       old;
+  void     *exit_value;
 
   TEST_BEGIN();
+
+  sc = sem_init( &masterSem, 0, 0 );
+  rtems_test_assert( sc == 0 );
+
+  sc = sem_init( &workerSem, 0, 0 );
+  rtems_test_assert( sc == 0 );
+
+  resourceSnapshotInit();
 
   /* generate some error conditions */
   puts( "Init - pthread_setcancelstate - NULL oldstate" );
@@ -111,9 +171,46 @@ void *countTaskAsync(void *ignored)
   sc = pthread_setcanceltype(12, &old);
   fatal_posix_service_status( sc, EINVAL, "cancel type EINVAL" );
 
-  puts( "Init - pthread_cancel - bad ID - EINVAL" );
+  puts( "Init - pthread_cancel - bad ID - ESRCH" );
   sc = pthread_cancel(0x100);
-  fatal_posix_service_status( sc, EINVAL, "cancel bad Id" );
+  fatal_posix_service_status( sc, ESRCH, "cancel bad Id" );
+
+  resourceSnapshotCheck();
+
+  /* Test resource reclamation due to pthread_detach() */
+
+  sc = pthread_create( &task, NULL, taskAsyncAndDetached, NULL );
+  fatal_posix_service_status( sc, 0, "create taskAsyncAndDetached" );
+
+  sc = sem_wait( &workerSem );
+  rtems_test_assert( sc == 0 );
+
+  sc = pthread_cancel( task );
+  fatal_posix_service_status( sc, 0, "cancel taskAsyncAndDetached" );
+
+  sc = pthread_detach( task );
+  fatal_posix_service_status( sc, 0, "detach taskAsyncAndDetached" );
+
+  sched_yield();
+
+  sc = pthread_join( task, &exit_value );
+  fatal_posix_service_status( sc, ESRCH, "join taskAsyncAndDetached" );
+
+  resourceSnapshotCheck();
+
+  /* Test pthread_detach() after pthread_join() */
+
+  sc = pthread_create( &task, NULL, taskSelfDetach, NULL );
+  fatal_posix_service_status( sc, 0, "create taskSelfDetach" );
+
+  sc = sem_wait( &workerSem );
+  rtems_test_assert( sc == 0 );
+
+  sc = pthread_join( task, &exit_value );
+  fatal_posix_service_status( sc, 0, "join taskSelfDetach" );
+  rtems_test_assert( exit_value == (void *) 123 );
+
+  resourceSnapshotCheck();
 
   /* Start countTask deferred */
   {
@@ -145,6 +242,7 @@ void *countTaskAsync(void *ignored)
     fatal_posix_service_status( sc, 0, "join async" );
   }
 
+  resourceSnapshotCheck();
 
   TEST_END();
 
@@ -165,6 +263,8 @@ void *countTaskAsync(void *ignored)
 #define CONFIGURE_INITIAL_EXTENSIONS RTEMS_TEST_INITIAL_EXTENSION
 
 #define CONFIGURE_MAXIMUM_POSIX_THREADS 2
+#define CONFIGURE_MAXIMUM_POSIX_SEMAPHORES 2
+
 #define CONFIGURE_POSIX_INIT_THREAD_TABLE
 
 #define CONFIGURE_INIT

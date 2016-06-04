@@ -86,19 +86,6 @@ rtems_status_code _Barrier_MP_Send_request_packet (
 );
 
 /**
- *  @brief _Barrier_MP_Send_response_packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive can be performed on another node.
- */
-
-void _Barrier_MP_Send_response_packet (
-  Barrier_MP_Remote_operations  operation,
-  Objects_Id                    barrier_id,
-  Thread_Control               *the_thread
-);
-
-/**
  *  @brief _Barrier_MP_Process_packet
  *
  *  This routine performs the actions specific to this package for
@@ -129,13 +116,6 @@ void _Barrier_MP_Send_object_was_deleted (
 void _Barrier_MP_Send_extract_proxy (
   void           *argument
 );
-
-/**
- *  @brief _Barrier_MP_Get_packet
- *
- *  This function is used to obtain a barrier mp packet.
- */
-Barrier_MP_Packet *_Barrier_MP_Get_packet ( void );
 
 /**@}*/
 

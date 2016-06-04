@@ -15,17 +15,31 @@
  *  http://www.rtems.org/license/LICENSE.
  */
 
+#ifndef _RTEMS_POSIX_MUTEXIMPL_H
+#define _RTEMS_POSIX_MUTEXIMPL_H
+
 #include <rtems/posix/mutex.h>
 #include <rtems/score/coremuteximpl.h>
 
 #include <errno.h>
-
-#ifndef _RTEMS_POSIX_MUTEXIMPL_H
-#define _RTEMS_POSIX_MUTEXIMPL_H
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define POSIX_MUTEX_NO_PROTOCOL_TQ_OPERATIONS &_Thread_queue_Operations_FIFO
+
+/**
+ * @brief Supported POSIX mutex protocols.
+ *
+ * Must be in synchronization with POSIX_Mutex_Control::protocol.
+ */
+typedef enum {
+  POSIX_MUTEX_NO_PROTOCOL,
+  POSIX_MUTEX_PRIORITY_INHERIT,
+  POSIX_MUTEX_PRIORITY_CEILING
+} POSIX_Mutex_Protocol;
 
 /**
  *  The following defines the information control block used to manage
@@ -38,11 +52,27 @@ extern Objects_Information _POSIX_Mutex_Information;
  */
 extern pthread_mutexattr_t _POSIX_Mutex_Default_attributes;
 
-/**
- *  This array contains a mapping from Score Mutex return codes to
- *  POSIX return codes.
- */
-extern const int _POSIX_Mutex_Return_codes[CORE_MUTEX_STATUS_LAST + 1];
+RTEMS_INLINE_ROUTINE void _POSIX_Mutex_Acquire_critical(
+  POSIX_Mutex_Control  *the_mutex,
+  Thread_queue_Context *queue_context
+)
+{
+  _CORE_mutex_Acquire_critical(
+    &the_mutex->Mutex.Recursive.Mutex,
+    queue_context
+  );
+}
+
+RTEMS_INLINE_ROUTINE void _POSIX_Mutex_Release(
+  POSIX_Mutex_Control  *the_mutex,
+  Thread_queue_Context *queue_context
+)
+{
+  _CORE_mutex_Release(
+    &the_mutex->Mutex.Recursive.Mutex,
+    queue_context
+  );
+}
 
 /**
  *  @brief POSIX Mutex Allocate
@@ -65,7 +95,6 @@ RTEMS_INLINE_ROUTINE void _POSIX_Mutex_Free(
   POSIX_Mutex_Control *the_mutex
 )
 {
-  _CORE_mutex_Destroy( &the_mutex->Mutex );
   _Objects_Free( &_POSIX_Mutex_Information, &the_mutex->Object );
 }
 
@@ -83,55 +112,6 @@ int _POSIX_Mutex_Lock_support(
 );
 
 /**
- * @brief Convert Score mutex status codes into POSIX status values
- *
- * A support routine which converts core mutex status codes into the
- * appropriate POSIX status values.
- *
- * @param[in] the_mutex_status is the mutex status code to translate
- *
- * @retval 0 Mutex status code indicates the operation completed successfully.
- * @retval EBUSY Mutex status code indicates that the operation unable to 
- *         complete immediately because the resource was unavailable.
- * @retval EDEADLK Mutex status code indicates that an attempt was made to
- *         relock a mutex for which nesting is not configured.
- * @retval EPERM Mutex status code indicates that an attempt was made to 
- *         release a mutex by a thread other than the thread which locked it.
- * @retval EINVAL Mutex status code indicates that the thread was blocked
- *         waiting for an operation to complete and the mutex was deleted.
- * @retval ETIMEDOUT Mutex status code indicates that the calling task was
- *         willing to block but the operation was unable to complete
- *         within the time allotted because the resource never became
- *         available.
- */
-RTEMS_INLINE_ROUTINE int _POSIX_Mutex_Translate_core_mutex_return_code(
-  CORE_mutex_Status  the_mutex_status
-)
-{
-  /*
-   *  Internal consistency check for bad status from SuperCore
-   */
-  #if defined(RTEMS_DEBUG)
-    if ( the_mutex_status > CORE_MUTEX_STATUS_LAST )
-      return EINVAL;
-  #endif
-  return _POSIX_Mutex_Return_codes[the_mutex_status];
-}
-
-/**
- *  @brief POSIX Mutex Get (Thread Dispatch Disable)
- *
- *  A support routine which translates the mutex id into a local pointer.
- *  As a side-effect, it may create the mutex.
- *
- *  @note This version of the method uses a dispatching critical section.
- */
-POSIX_Mutex_Control *_POSIX_Mutex_Get (
-  pthread_mutex_t   *mutex,
-  Objects_Locations *location
-);
-
-/**
  *  @brief POSIX Mutex Get (Interrupt Disable)
  *
  *  A support routine which translates the mutex id into a local pointer.
@@ -139,11 +119,20 @@ POSIX_Mutex_Control *_POSIX_Mutex_Get (
  *
  *  @note: This version of the method uses an interrupt critical section.
  */
-POSIX_Mutex_Control *_POSIX_Mutex_Get_interrupt_disable (
-  pthread_mutex_t   *mutex,
-  Objects_Locations *location,
-  ISR_lock_Context  *lock_context
+POSIX_Mutex_Control *_POSIX_Mutex_Get(
+  pthread_mutex_t      *mutex,
+  Thread_queue_Context *queue_context
 );
+
+RTEMS_INLINE_ROUTINE POSIX_Mutex_Control *_POSIX_Mutex_Get_no_protection(
+  const pthread_mutex_t *mutex
+)
+{
+  return (POSIX_Mutex_Control *) _Objects_Get_no_protection(
+    (Objects_Id) *mutex,
+    &_POSIX_Mutex_Information
+  );
+}
 
 #ifdef __cplusplus
 }

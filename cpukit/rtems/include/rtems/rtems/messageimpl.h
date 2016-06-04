@@ -74,20 +74,6 @@ rtems_status_code _Message_queue_Submit(
 );
 
 /**
- * @brief Message queue Translate Core Message Queue Return Code
- *
- * This function returns a RTEMS status code based on
- * @a the_message_queue_status.
- *
- * @param[in] the_message_queue_status is the status code to translate
- *
- * @retval translated RTEMS status code
- */
-rtems_status_code _Message_queue_Translate_core_message_queue_return_code (
-  uint32_t   the_message_queue_status
-);
-
-/**
  *  @brief Deallocates a message queue control block into
  *  the inactive chain of free message queue control blocks.
  *
@@ -101,39 +87,16 @@ RTEMS_INLINE_ROUTINE void _Message_queue_Free (
   _Objects_Free( &_Message_queue_Information, &the_message_queue->Object );
 }
 
-/**
- *  @brief Maps message queue IDs to message queue control blocks.
- *
- *  This function maps message queue IDs to message queue control
- *  blocks.  If ID corresponds to a local message queue, then it
- *  returns the_message_queue control pointer which maps to ID
- *  and location is set to OBJECTS_LOCAL.  If the message queue ID is
- *  global and resides on a remote node, then location is set
- *  to OBJECTS_REMOTE, and the_message_queue is undefined.
- *  Otherwise, location is set to OBJECTS_ERROR and
- *  the_message_queue is undefined.
- */
-RTEMS_INLINE_ROUTINE Message_queue_Control *_Message_queue_Get (
-  Objects_Id         id,
-  Objects_Locations *location
+RTEMS_INLINE_ROUTINE Message_queue_Control *_Message_queue_Get(
+  Objects_Id            id,
+  Thread_queue_Context *queue_context
 )
 {
-  return (Message_queue_Control *)
-     _Objects_Get( &_Message_queue_Information, id, location );
-}
-
-RTEMS_INLINE_ROUTINE Message_queue_Control *
-_Message_queue_Get_interrupt_disable(
-  Objects_Id         id,
-  Objects_Locations *location,
-  ISR_lock_Context  *lock_context
-)
-{
-  return (Message_queue_Control *) _Objects_Get_isr_disable(
-    &_Message_queue_Information,
+  _Thread_queue_Context_initialize( queue_context );
+  return (Message_queue_Control *) _Objects_Get(
     id,
-    location,
-    lock_context
+    &queue_context->Lock_context,
+    &_Message_queue_Information
   );
 }
 

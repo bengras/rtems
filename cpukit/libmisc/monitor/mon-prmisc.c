@@ -116,8 +116,7 @@ rtems_monitor_dump_priority(rtems_task_priority priority)
 static const rtems_assoc_t rtems_monitor_state_assoc[] = {
     { "DELAY",  STATES_DELAYING, 0 },
     { "DORM",   STATES_DORMANT, 0 },
-    { "MIGRA",  STATES_MIGRATING, 0 },
-    { "RESTA",  STATES_RESTARTING, 0 },
+    { "LIFE",   STATES_LIFE_IS_CHANGING, 0 },
     { "SUSP",   STATES_SUSPENDED, 0 },
     { "Wbar",   STATES_WAITING_FOR_BARRIER, 0 },
     { "Wbuf",   STATES_WAITING_FOR_BUFFER, 0 },
@@ -139,7 +138,6 @@ static const rtems_assoc_t rtems_monitor_state_assoc[] = {
     { "Wslmtx", STATES_WAITING_FOR_SYS_LOCK_MUTEX, 0 },
     { "Wslsem", STATES_WAITING_FOR_SYS_LOCK_SEMAPHORE, 0 },
     { "Wsysev", STATES_WAITING_FOR_SYSTEM_EVENT, 0 },
-    { "Wterm",  STATES_WAITING_FOR_TERMINATION, 0 },
     { "Wtime",  STATES_WAITING_FOR_TIME, 0 },
     { "Wwkup",  STATES_WAITING_FOR_BSD_WAKEUP, 0 },
     { "ZOMBI",  STATES_ZOMBIE, 0 },

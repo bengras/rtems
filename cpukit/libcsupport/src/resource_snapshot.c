@@ -70,7 +70,6 @@ static const Objects_Information *const objects_info_table[] = {
     &_POSIX_Barrier_Information,
     &_POSIX_Condition_variables_Information,
     &_POSIX_Message_queue_Information,
-    &_POSIX_Message_queue_Information_fds,
     &_POSIX_Mutex_Information,
     &_POSIX_RWLock_Information,
     &_POSIX_Semaphore_Information,
@@ -107,10 +106,8 @@ static void get_heap_info(Heap_Control *heap, Heap_Information_block *info)
 
 static POSIX_Keys_Control *get_next_key(Objects_Id *id)
 {
-  Objects_Locations location;
-
   return (POSIX_Keys_Control *)
-    _Objects_Get_next(&_POSIX_Keys_Information, *id, &location, id);
+    _Objects_Get_next(*id, &_POSIX_Keys_Information, id);
 }
 
 static uint32_t get_active_posix_key_value_pairs(void)

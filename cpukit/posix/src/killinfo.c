@@ -54,7 +54,7 @@
 #define _POSIX_signals_Is_interested( _api, _mask ) \
   ( (_api)->signals_unblocked & (_mask) )
 
-int killinfo(
+int _POSIX_signals_Send(
   pid_t               pid,
   int                 sig,
   const union sigval *value
@@ -75,7 +75,8 @@ int killinfo(
   siginfo_t                   *siginfo;
   POSIX_signals_Siginfo_node  *psiginfo;
   Thread_queue_Heads          *heads;
-  ISR_lock_Context             lock_context;
+  Thread_queue_Context         queue_context;
+  Per_CPU_Control             *cpu_self;
 
   /*
    *  Only supported for the "calling process" (i.e. this node).
@@ -120,13 +121,14 @@ int killinfo(
     siginfo->si_value = *value;
   }
 
-  _Thread_Disable_dispatch();
+  /* FIXME: https://devel.rtems.org/ticket/2690 */
+  cpu_self = _Thread_Dispatch_disable();
 
   /*
    *  Is the currently executing thread interested?  If so then it will
    *  get it an execute it as soon as the dispatcher executes.
    */
-  the_thread = _Thread_Executing;
+  the_thread = _Per_CPU_Get_executing( cpu_self );
 
   api = the_thread->API_Extensions[ THREAD_API_POSIX ];
   if ( _POSIX_signals_Is_interested( api, mask ) ) {
@@ -320,7 +322,7 @@ process_it:
    *  blocked waiting for the signal.
    */
   if ( _POSIX_signals_Unblock_thread( the_thread, sig, siginfo ) ) {
-    _Thread_Enable_dispatch();
+    _Thread_Dispatch_enable( cpu_self );
     return 0;
   }
 
@@ -332,15 +334,16 @@ post_process_signal:
    */
   _POSIX_signals_Set_process_signals( mask );
 
-  _POSIX_signals_Acquire( &lock_context );
+  _Thread_queue_Context_initialize( &queue_context );
+  _POSIX_signals_Acquire( &queue_context );
 
   if ( _POSIX_signals_Vectors[ sig ].sa_flags == SA_SIGINFO ) {
 
     psiginfo = (POSIX_signals_Siginfo_node *)
       _Chain_Get_unprotected( &_POSIX_signals_Inactive_siginfo );
     if ( !psiginfo ) {
-      _POSIX_signals_Release( &lock_context );
-      _Thread_Enable_dispatch();
+      _POSIX_signals_Release( &queue_context );
+      _Thread_Dispatch_enable( cpu_self );
       rtems_set_errno_and_return_minus_one( EAGAIN );
     }
 
@@ -352,8 +355,8 @@ post_process_signal:
     );
   }
 
-  _POSIX_signals_Release( &lock_context );
+  _POSIX_signals_Release( &queue_context );
   DEBUG_STEP("\n");
-  _Thread_Enable_dispatch();
+  _Thread_Dispatch_enable( cpu_self );
   return 0;
 }

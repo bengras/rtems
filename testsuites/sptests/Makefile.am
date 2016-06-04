@@ -11,7 +11,7 @@ _SUBDIRS = \
     sp50 sp51 sp52 sp53 sp54 sp55 sp56 sp57 sp58 sp59 \
     sp60      sp62 sp63 sp64 sp65 sp66 sp67 sp68 sp69 \
     sp70 sp71 sp72 sp73 sp74 sp75 sp76 sp77 sp2038 \
-    spassoc01 spchain spclockget spcoverage spobjgetnext \
+    spassoc01 spchain spcoverage spobjgetnext \
     spprintk spprivenv01 sprbtree01 spsize spstkalloc \
     spstkalloc02 spthreadq01 spwatchdog spwkspace \
     sperror01 sperror02 sperror03 \
@@ -33,6 +33,8 @@ _SUBDIRS = \
     spsignal_err01 spport_err01 spmsgq_err01 spmsgq_err02 spsem_err01 \
     spsem_err02 sptask_err01 spevent_err03 sptask_err03 sptask_err02 \
     sptask_err04 spclock_err01
+_SUBDIRS += spmutex01
+_SUBDIRS += spextensions01
 _SUBDIRS += spsysinit01
 if HAS_SMP
 else

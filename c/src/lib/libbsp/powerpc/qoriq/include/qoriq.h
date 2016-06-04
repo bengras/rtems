@@ -272,6 +272,11 @@ typedef struct {
 } qoriq_law;
 
 typedef struct {
+  uint32_t reserved_0x0[640];
+  uint32_t qmbm_warmrst;
+} qoriq_dcfg;
+
+typedef struct {
   QORIQ_RESERVE(0x0000, 0x1000);
 } qoriq_bman;
 
@@ -291,7 +296,10 @@ typedef struct {
   QORIQ_RESERVE(0x001000, 0x040000);
   qoriq_pic pic;
   QORIQ_FILL(0x040000, 0x070000, qoriq_pic);
-  QORIQ_RESERVE(0x070000, 0x114000);
+  QORIQ_RESERVE(0x070000, 0x0e0000);
+  qoriq_dcfg dcfg;
+  QORIQ_FILL(0x0e0000, 0x0e1000, qoriq_dcfg);
+  QORIQ_RESERVE(0x0e1000, 0x114000);
   qoriq_esdhc esdhc;
   QORIQ_FILL(0x114000, 0x115000, qoriq_esdhc);
   QORIQ_RESERVE(0x115000, 0x11c500);
@@ -519,7 +527,21 @@ extern volatile qoriq_ccsr qoriq;
 #if QORIQ_CHIP_IS_T_VARIANT(QORIQ_CHIP_VARIANT)
 extern uint8_t qoriq_bman_portal[2][16777216];
 extern uint8_t qoriq_qman_portal[2][16777216];
+
+void qoriq_clear_ce_portal(void *base, size_t size);
+void qoriq_clear_ci_portal(void *base, size_t size);
 #endif
+
+static inline void qoriq_reset_qman_and_bman(void)
+{
+#if QORIQ_CHIP_IS_T_VARIANT(QORIQ_CHIP_VARIANT)
+  qoriq.dcfg.qmbm_warmrst = 0x3;
+
+  while ((qoriq.dcfg.qmbm_warmrst & 0x3) != 0) {
+    /* Wait for reset done */
+  }
+#endif
+}
 
 #ifdef __cplusplus
 }

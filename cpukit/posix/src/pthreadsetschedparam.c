@@ -38,85 +38,88 @@ int pthread_setschedparam(
 )
 {
   Thread_Control                      *the_thread;
+  Per_CPU_Control                     *cpu_self;
   POSIX_API_Control                   *api;
   Thread_CPU_budget_algorithms         budget_algorithm;
   Thread_CPU_budget_algorithm_callout  budget_callout;
-  Objects_Locations                    location;
-  int                                  rc;
+  int                                  eno;
   Priority_Control                     unused;
-  ISR_Level                            level;
+  ISR_lock_Context                     lock_context;
+  Priority_Control                     new_priority;
 
   /*
    *  Check all the parameters
    */
-  if ( !param )
-    return EINVAL;
 
-  rc = _POSIX_Thread_Translate_sched_param(
+  if ( param == NULL ) {
+    return EINVAL;
+  }
+
+  eno = _POSIX_Thread_Translate_sched_param(
     policy,
     param,
     &budget_algorithm,
     &budget_callout
   );
-  if ( rc )
-    return rc;
+  if ( eno != 0 ) {
+    return eno;
+  }
+
+  the_thread = _Thread_Get( thread, &lock_context );
+
+  if ( the_thread == NULL ) {
+    return ESRCH;
+  }
 
   /*
    *  Actually change the scheduling policy and parameters
    */
-  the_thread = _Thread_Get( thread, &location );
-  switch ( location ) {
 
-    case OBJECTS_LOCAL:
-      api = the_thread->API_Extensions[ THREAD_API_POSIX ];
+  cpu_self = _Thread_Dispatch_disable_critical( &lock_context );
+  _Thread_State_acquire_critical( the_thread, &lock_context );
 
-      if ( api->schedpolicy == SCHED_SPORADIC ) {
-        _ISR_Disable( level );
-        _Watchdog_Per_CPU_remove_relative( &api->Sporadic_timer );
-        _ISR_Enable( level );
-      }
+  api = the_thread->API_Extensions[ THREAD_API_POSIX ];
 
-      api->schedpolicy = policy;
-      api->schedparam  = *param;
-      api->Attributes.schedpolicy = policy;
-      api->Attributes.schedparam  = *param;
+  if ( api->schedpolicy == SCHED_SPORADIC ) {
+    _Watchdog_Per_CPU_remove_relative( &api->Sporadic_timer );
+  }
 
-      the_thread->budget_algorithm = budget_algorithm;
-      the_thread->budget_callout   = budget_callout;
+  api->schedpolicy = policy;
+  api->schedparam  = *param;
+  api->Attributes.schedpolicy = policy;
+  api->Attributes.schedparam  = *param;
 
-      switch ( api->schedpolicy ) {
-        case SCHED_OTHER:
-        case SCHED_FIFO:
-        case SCHED_RR:
-          the_thread->cpu_time_budget =
-            rtems_configuration_get_ticks_per_timeslice();
+  the_thread->budget_algorithm = budget_algorithm;
+  the_thread->budget_callout   = budget_callout;
 
-          _Thread_Set_priority(
-            the_thread,
-            _POSIX_Priority_To_core( api->schedparam.sched_priority ),
-            &unused,
-            true
-          );
-          break;
+  switch ( policy ) {
+    case SCHED_OTHER:
+    case SCHED_FIFO:
+    case SCHED_RR:
+      the_thread->cpu_time_budget =
+        rtems_configuration_get_ticks_per_timeslice();
+      new_priority = _POSIX_Priority_To_core( api->schedparam.sched_priority );
+      break;
 
-        case SCHED_SPORADIC:
-          api->ss_high_priority = api->schedparam.sched_priority;
-          _ISR_Disable( level );
-          _Watchdog_Per_CPU_remove_relative( &api->Sporadic_timer );
-          _ISR_Enable( level );
-          _POSIX_Threads_Sporadic_budget_TSR( &api->Sporadic_timer );
-          break;
-      }
-
-      _Objects_Put( &the_thread->Object );
-      return 0;
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
+    case SCHED_SPORADIC:
+      api->ss_high_priority = api->schedparam.sched_priority;
       break;
   }
 
-  return ESRCH;
+  _Thread_State_release( the_thread, &lock_context );
+
+  switch ( policy ) {
+    case SCHED_OTHER:
+    case SCHED_FIFO:
+    case SCHED_RR:
+      _Thread_Set_priority( the_thread, new_priority, &unused, true );
+      break;
+
+    case SCHED_SPORADIC:
+      _POSIX_Threads_Sporadic_budget_TSR( &api->Sporadic_timer );
+      break;
+  }
+
+  _Thread_Dispatch_enable( cpu_self );
+  return 0;
 }

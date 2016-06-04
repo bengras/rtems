@@ -232,7 +232,7 @@ void Stack_check_report_blown_task(Thread_Control *running, bool pattern_ok)
   char           name[32];
 
   printk("BLOWN STACK!!!\n");
-  printk("task control block: 0x%08" PRIxPTR "\n", running);
+  printk("task control block: 0x%08" PRIxPTR "\n", (intptr_t) running);
   printk("task ID: 0x%08lx\n", (unsigned long) running->Object.id);
   printk(
     "task name: 0x%08" PRIx32 "\n",
@@ -245,15 +245,15 @@ void Stack_check_report_blown_task(Thread_Control *running, bool pattern_ok)
   printk(
     "task stack area (%lu Bytes): 0x%08" PRIxPTR " .. 0x%08" PRIxPTR "\n",
     (unsigned long) stack->size,
-    stack->area,
-    ((char *) stack->area + stack->size)
+    (intptr_t) stack->area,
+    (intptr_t) ((char *) stack->area + stack->size)
   );
   if (!pattern_ok) {
     printk(
       "damaged pattern area (%lu Bytes): 0x%08" PRIxPTR " .. 0x%08" PRIxPTR "\n",
       (unsigned long) PATTERN_SIZE_BYTES,
-      pattern_area,
-      (pattern_area + PATTERN_SIZE_BYTES)
+      (intptr_t) pattern_area,
+      (intptr_t) (pattern_area + PATTERN_SIZE_BYTES)
     );
   }
 
@@ -261,7 +261,7 @@ void Stack_check_report_blown_task(Thread_Control *running, bool pattern_ok)
     if (rtems_configuration_get_user_multiprocessing_table()) {
       printk(
         "node: 0x%08" PRIxPTR "\n",
-          rtems_configuration_get_user_multiprocessing_table()->node
+          (intptr_t) rtems_configuration_get_user_multiprocessing_table()->node
       );
     }
   #endif
@@ -387,8 +387,7 @@ static inline void *Stack_check_find_high_water_mark(
  *
  *  Try to print out how much stack was actually used by the task.
  */
-static void                   *print_context;
-static rtems_printk_plugin_t   print_handler;
+static const rtems_printer* printer;
 
 static void Stack_check_Dump_threads_usage(
   Thread_Control *the_thread
@@ -438,8 +437,8 @@ static void Stack_check_Dump_threads_usage(
     if ( the_thread )
   #endif
     {
-      (*print_handler)(
-        print_context,
+      rtems_printf(
+        printer,
         "0x%08" PRIx32 "  %4s",
         the_thread->Object.id,
         rtems_object_get_name( the_thread->Object.id, sizeof(name), name )
@@ -447,13 +446,13 @@ static void Stack_check_Dump_threads_usage(
     }
     #if (CPU_ALLOCATE_INTERRUPT_STACK == TRUE)
       else {
-        (*print_handler)( print_context, "0x%08" PRIx32 "  INTR", ~0 );
+        rtems_printf( printer, "0x%08x  INTR", ~0 );
       }
     #endif
 
-  (*print_handler)(
-    print_context,
-    " %010p - %010p %010p  %8" PRId32 "   ",
+  rtems_printf(
+    printer,
+    " %p - %p %p  %8" PRId32 "   ",
     stack->area,
     stack->area + stack->size - 1,
     current,
@@ -461,9 +460,9 @@ static void Stack_check_Dump_threads_usage(
   );
 
   if (Stack_check_Initialized == 0) {
-    (*print_handler)( print_context, "Unavailable\n" );
+    rtems_printf( printer, "Unavailable\n" );
   } else {
-    (*print_handler)( print_context, "%8" PRId32 "\n", used );
+    rtems_printf( printer, "%8" PRId32 "\n", used );
   }
 
 
@@ -489,18 +488,16 @@ static void Stack_check_Dump_threads_usage(
  */
 
 void rtems_stack_checker_report_usage_with_plugin(
-  void                  *context,
-  rtems_printk_plugin_t  print
+  const rtems_printer* printer_
 )
 {
-  if ( !print )
+  if ( printer != NULL || ! rtems_print_printer_valid ( printer_ ) )
     return;
 
-  print_context = context;
-  print_handler = print;
+  printer = printer_;
 
-  (*print)( context, "Stack usage by thread\n");
-  (*print)( context,
+  rtems_printf( printer, "Stack usage by thread\n");
+  rtems_printf( printer,
 "    ID      NAME    LOW          HIGH     CURRENT     AVAILABLE     USED\n"
   );
 
@@ -512,11 +509,12 @@ void rtems_stack_checker_report_usage_with_plugin(
     Stack_check_Dump_threads_usage((Thread_Control *) -1);
   #endif
 
-  print_context = NULL;
-  print_handler = NULL;
+  printer = NULL;
 }
 
 void rtems_stack_checker_report_usage( void )
 {
-  rtems_stack_checker_report_usage_with_plugin( NULL, printk_plugin );
+  rtems_printer printer;
+  rtems_print_printer_printk(&printer);
+  rtems_stack_checker_report_usage_with_plugin( &printer );
 }

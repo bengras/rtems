@@ -76,13 +76,8 @@ RTEMS_INLINE_ROUTINE void _POSIX_Keys_Free(
 
 RTEMS_INLINE_ROUTINE POSIX_Keys_Control *_POSIX_Keys_Get( pthread_key_t key )
 {
-  Objects_Locations location;
-
-  return (POSIX_Keys_Control *) _Objects_Get_no_protection(
-    &_POSIX_Keys_Information,
-    (Objects_Id) key,
-    &location
-  );
+  return (POSIX_Keys_Control *)
+    _Objects_Get_no_protection( (Objects_Id) key, &_POSIX_Keys_Information );
 }
 
 RTEMS_INLINE_ROUTINE void _POSIX_Keys_Key_value_acquire(
@@ -145,8 +140,8 @@ RTEMS_INLINE_ROUTINE void *_POSIX_Keys_Key_value_map( RBTree_Node *node )
 }
 
 RTEMS_INLINE_ROUTINE POSIX_Keys_Key_value_pair *_POSIX_Keys_Key_value_find(
-  pthread_key_t   key,
-  Thread_Control *the_thread
+  pthread_key_t         key,
+  const Thread_Control *the_thread
 )
 {
   return _RBTree_Find_inline(

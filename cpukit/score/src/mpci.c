@@ -35,6 +35,8 @@ RTEMS_STATIC_ASSERT(
   MPCI_Internal_packet
 );
 
+#define MPCI_SEMAPHORE_TQ_OPERATIONS &_Thread_queue_Operations_FIFO
+
 bool _System_state_Is_multiprocessing;
 
 rtems_multiprocessing_table *_Configuration_MP_table;
@@ -119,7 +121,6 @@ static void _MPCI_Handler_initialization( void )
 
   _CORE_semaphore_Initialize(
     &_MPCI_Semaphore,
-    CORE_SEMAPHORE_DISCIPLINES_FIFO,
     0                         /* initial_value */
   );
 }
@@ -134,7 +135,8 @@ static void _MPCI_Create_server( void )
       }
     }
   };
-  Objects_Name name;
+  ISR_lock_Context lock_context;
+  Objects_Name     name;
 
 
   if ( !_System_state_Is_multiprocessing )
@@ -164,7 +166,8 @@ static void _MPCI_Create_server( void )
     name
   );
 
-  _Thread_Start( _MPCI_Receive_server_tcb, &entry );
+  _ISR_lock_ISR_disable( &lock_context );
+  _Thread_Start( _MPCI_Receive_server_tcb, &entry, &lock_context );
 }
 
 static void _MPCI_Initialization( void )
@@ -223,11 +226,10 @@ void _MPCI_Send_process_packet (
   (*_MPCI_table->send_packet)( destination, the_packet );
 }
 
-uint32_t   _MPCI_Send_request_packet (
-  uint32_t            destination,
-  MP_packet_Prefix   *the_packet,
-  States_Control      extra_state,
-  uint32_t            timeout_code
+Status_Control _MPCI_Send_request_packet(
+  uint32_t          destination,
+  MP_packet_Prefix *the_packet,
+  States_Control    extra_state
 )
 {
   Per_CPU_Control *cpu_self;
@@ -259,12 +261,12 @@ uint32_t   _MPCI_Send_request_packet (
       executing,
       STATES_WAITING_FOR_RPC_REPLY | extra_state,
       the_packet->timeout,
-      timeout_code
+      2
     );
 
   _Thread_Dispatch_enable( cpu_self );
 
-  return executing->Wait.return_code;
+  return _Thread_Wait_get_status( executing );
 }
 
 void _MPCI_Send_response_packet (
@@ -290,24 +292,22 @@ Thread_Control *_MPCI_Process_response (
   MP_packet_Prefix  *the_packet
 )
 {
-  Thread_Control    *the_thread;
-  Objects_Locations  location;
+  ISR_lock_Context  lock_context;
+  Thread_Control   *the_thread;
 
-  the_thread = _Thread_Get( the_packet->id, &location );
-  switch ( location ) {
-    case OBJECTS_ERROR:
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-      the_thread = NULL;          /* IMPOSSIBLE */
-      break;
-    case OBJECTS_LOCAL:
-      _Thread_queue_Extract( the_thread );
-      the_thread->Wait.return_code = the_packet->return_code;
-      _Objects_Put_without_thread_dispatch( &the_thread->Object );
-    break;
-  }
+  the_thread = _Thread_Get( the_packet->id, &lock_context );
+  _Assert( the_thread != NULL );
 
+  /*
+   * FIXME: This is broken on SMP, see https://devel.rtems.org/ticket/2703.
+   *
+   * Should use _Thread_queue_Extract_critical() instead with a handler
+   * function provided by the caller of _MPCI_Process_response().  Similar to
+   * the filter function in _Thread_queue_Flush_critical().
+   */
+  _ISR_lock_ISR_enable( &lock_context );
+  _Thread_queue_Extract( the_thread );
+  the_thread->Wait.return_code = the_packet->return_code;
   return the_thread;
 }
 
@@ -321,25 +321,26 @@ void _MPCI_Receive_server(
 )
 {
 
-  MP_packet_Prefix         *the_packet;
-  MPCI_Packet_processor     the_function;
-  Thread_Control           *executing;
-  ISR_lock_Context          lock_context;
+  MP_packet_Prefix      *the_packet;
+  MPCI_Packet_processor  the_function;
+  Thread_Control        *executing;
+  Thread_queue_Context   queue_context;
 
   executing = _Thread_Get_executing();
+  _Thread_queue_Context_initialize( &queue_context );
 
   for ( ; ; ) {
 
     executing->receive_packet = NULL;
 
-    _ISR_lock_ISR_disable( &lock_context );
+    _ISR_lock_ISR_disable( &queue_context.Lock_context );
     _CORE_semaphore_Seize(
       &_MPCI_Semaphore,
+      MPCI_SEMAPHORE_TQ_OPERATIONS,
       executing,
-      0,
       true,
       WATCHDOG_NO_TIMEOUT,
-      &lock_context
+      &queue_context
     );
 
     for ( ; ; ) {
@@ -371,10 +372,15 @@ void _MPCI_Receive_server(
 
 void _MPCI_Announce ( void )
 {
-  ISR_lock_Context lock_context;
+  Thread_queue_Context queue_context;
 
-  _ISR_lock_ISR_disable( &lock_context );
-  (void) _CORE_semaphore_Surrender( &_MPCI_Semaphore, 0, 0, &lock_context );
+  _ISR_lock_ISR_disable( &queue_context.Lock_context );
+  (void) _CORE_semaphore_Surrender(
+    &_MPCI_Semaphore,
+    MPCI_SEMAPHORE_TQ_OPERATIONS,
+    UINT32_MAX,
+    &queue_context
+  );
 }
 
 void _MPCI_Internal_packets_Send_process_packet (

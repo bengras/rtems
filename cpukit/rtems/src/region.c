@@ -48,25 +48,9 @@ static void _Region_Manager_initialization(void)
                                /* maximum objects of this class */
     sizeof( Region_Control ),  /* size of this object's control block */
     false,                     /* true if the name is a string */
-    RTEMS_MAXIMUM_NAME_LENGTH  /* maximum length of an object name */
-#if defined(RTEMS_MULTIPROCESSING)
-    ,
-    false,                     /* true if this is a global object class */
+    RTEMS_MAXIMUM_NAME_LENGTH, /* maximum length of an object name */
     NULL                       /* Proxy extraction support callout */
-#endif
   );
-
-  /*
-   *  Register the MP Process Packet routine.
-   */
-
-#if defined(RTEMS_MULTIPROCESSING)
-  _MPCI_Register_packet_processor(
-    MP_PACKET_REGION,
-    0  /* Multiprocessing is not currently supported for Regions */
-  );
-#endif
-
 }
 
 RTEMS_SYSINIT_ITEM(

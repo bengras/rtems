@@ -19,6 +19,7 @@
 #define _RTEMS_SCORE_TODIMPL_H
 
 #include <rtems/score/tod.h>
+#include <rtems/score/apimutex.h>
 #include <rtems/score/timestamp.h>
 #include <rtems/score/timecounterimpl.h>
 #include <rtems/score/watchdog.h>
@@ -142,42 +143,62 @@ typedef struct {
 
 extern TOD_Control _TOD;
 
+static inline void _TOD_Lock( void )
+{
+  /* FIXME: https://devel.rtems.org/ticket/2630 */
+  _API_Mutex_Lock( _Once_Mutex );
+}
+
+static inline void _TOD_Unlock( void )
+{
+  _API_Mutex_Unlock( _Once_Mutex );
+}
+
+static inline void _TOD_Acquire( ISR_lock_Context *lock_context )
+{
+  _Timecounter_Acquire( lock_context );
+}
+
 /**
- *  @brief Sets the time of day from timestamp.
+ * @brief Sets the time of day.
  *
- *  The @a tod_as_timestamp timestamp represents the time since UNIX epoch.
- *  The watchdog seconds chain will be adjusted.
+ * The caller must be the owner of the TOD lock.
  *
- *  @param[in] tod_as_timestamp is the constant of the time of day as a timestamp
+ * @param tod_as_timestamp The new time of day in timestamp format representing
+ *   the time since UNIX Epoch.
+ * @param lock_context The ISR lock context used for the corresponding
+ *   _TOD_Acquire().  The caller must be the owner of the TOD lock.  This
+ *   function will release the TOD lock.
  */
-void _TOD_Set_with_timestamp(
-  const Timestamp_Control *tod_as_timestamp
+void _TOD_Set(
+  const Timestamp_Control *tod_as_timestamp,
+  ISR_lock_Context        *lock_context
 );
 
 /**
- *  @brief Sets the time of day from timespec.
+ * @brief Sets the time of day with timespec format.
  *
- *  The @a tod_as_timestamp timestamp represents the time since UNIX epoch.
- *  The watchdog seconds chain will be adjusted.
+ * @param tod_as_timespec The new time of day in timespec format.
  *
- *  In the process the input given as timespec will be transformed to FreeBSD
- *  bintime format to guarantee the right format for later setting it with a
- *  timestamp.
- *
- *  @param[in] tod_as_timespec is the constant of the time of day as a timespec
+ * @see _TOD_Set().
  */
-static inline void _TOD_Set(
+static inline void _TOD_Set_with_timespec(
   const struct timespec *tod_as_timespec
 )
 {
   Timestamp_Control tod_as_timestamp;
+  ISR_lock_Context  lock_context;
 
   _Timestamp_Set(
     &tod_as_timestamp,
     tod_as_timespec->tv_sec,
     tod_as_timespec->tv_nsec
   );
-  _TOD_Set_with_timestamp( &tod_as_timestamp );
+
+  _TOD_Lock();
+  _TOD_Acquire( &lock_context );
+  _TOD_Set( &tod_as_timestamp, &lock_context );
+  _TOD_Unlock();
 }
 
 /**
@@ -303,7 +324,7 @@ RTEMS_INLINE_ROUTINE void _TOD_Get_timeval(
  * @param[in] delta is the amount to adjust
  */
 void _TOD_Adjust(
-  const Timestamp_Control timestamp
+  const Timestamp_Control *delta
 );
 
 /**

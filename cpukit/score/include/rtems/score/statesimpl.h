@@ -76,14 +76,10 @@ extern "C" {
 #define STATES_WAITING_FOR_SYSTEM_EVENT        0x40000
 /** This macro corresponds to a task waiting for BSD wakeup. */
 #define STATES_WAITING_FOR_BSD_WAKEUP          0x80000
-/** This macro corresponds to a task waiting for a task termination. */
-#define STATES_WAITING_FOR_TERMINATION         0x100000
 /** This macro corresponds to a task being a zombie. */
 #define STATES_ZOMBIE                          0x200000
-/** This macro corresponds to a task migrating to another scheduler. */
-#define STATES_MIGRATING                       0x400000
-/** This macro corresponds to a task restarting. */
-#define STATES_RESTARTING                      0x800000
+/** This macro corresponds to a task those life is changing. */
+#define STATES_LIFE_IS_CHANGING                0x800000
 /** This macro corresponds to a task waiting for a join. */
 #define STATES_WAITING_FOR_JOIN                0x1000000
 /** This macro corresponds to a task waiting for a <sys/lock.h> mutex. */
@@ -127,7 +123,7 @@ extern "C" {
                                  STATES_WAITING_FOR_SYSTEM_EVENT | \
                                  STATES_INTERRUPTIBLE_BY_SIGNAL )
 
-/** All state bits set to one (provided for _Thread_Ready()) */
+/** All state bits set to one (provided for _Thread_Start()) */
 #define STATES_ALL_SET 0xffffffff
 
 /**
@@ -387,6 +383,13 @@ RTEMS_INLINE_ROUTINE bool _States_Is_waiting_for_period (
 )
 {
    return (the_states & STATES_WAITING_FOR_PERIOD);
+}
+
+RTEMS_INLINE_ROUTINE bool _States_Is_waiting_for_join_at_exit(
+  States_Control the_states
+)
+{
+   return ( the_states & STATES_WAITING_FOR_JOIN_AT_EXIT ) != 0;
 }
 
 /**

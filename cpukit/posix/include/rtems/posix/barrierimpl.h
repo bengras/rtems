@@ -23,6 +23,7 @@
 #include <rtems/score/corebarrierimpl.h>
 #include <rtems/score/objectimpl.h>
 
+#include <errno.h>
 #include <pthread.h>
 
 #ifdef __cplusplus
@@ -35,20 +36,6 @@ extern "C" {
  */
 
 extern Objects_Information _POSIX_Barrier_Information;
-
-/**
- * @brief POSIX translate barrier return code.
- * 
- * This routine translates SuperCore Barrier status codes into the
- * corresponding POSIX ones.
- *
- * @param[in] the_barrier_status is the SuperCore status.
- *
- * @return the corresponding POSIX status
- */
-int _POSIX_Barrier_Translate_core_barrier_return_code(
-  CORE_barrier_Status  the_barrier_status
-);
 
 /**
  * @brief Allocate a barrier control block.
@@ -76,26 +63,16 @@ RTEMS_INLINE_ROUTINE void _POSIX_Barrier_Free (
   _Objects_Free( &_POSIX_Barrier_Information, &the_barrier->Object );
 }
 
-/**
- * @brief Get a barrier control block.
- *
- * This function maps barrier IDs to barrier control blocks.
- * If ID corresponds to a local barrier, then it returns
- * the_barrier control pointer which maps to ID and location
- * is set to OBJECTS_LOCAL.  if the barrier ID is global and
- * resides on a remote node, then location is set to OBJECTS_REMOTE,
- * and the_barrier is undefined.  Otherwise, location is set
- * to OBJECTS_ERROR and the_barrier is undefined.
- */
-RTEMS_INLINE_ROUTINE POSIX_Barrier_Control *_POSIX_Barrier_Get (
-  pthread_barrier_t *barrier,
-  Objects_Locations *location
+RTEMS_INLINE_ROUTINE POSIX_Barrier_Control *_POSIX_Barrier_Get(
+  const pthread_barrier_t *barrier,
+  Thread_queue_Context    *queue_context
 )
 {
+  _Thread_queue_Context_initialize( queue_context );
   return (POSIX_Barrier_Control *) _Objects_Get(
-      &_POSIX_Barrier_Information,
-      (Objects_Id) *barrier,
-      location
+    (Objects_Id) *barrier,
+    &queue_context->Lock_context,
+    &_POSIX_Barrier_Information
   );
 }
 

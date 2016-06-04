@@ -30,6 +30,7 @@
   )
 
 THREAD_OFFSET_ASSERT( Object );
+THREAD_OFFSET_ASSERT( Join_queue );
 THREAD_OFFSET_ASSERT( current_state );
 THREAD_OFFSET_ASSERT( current_priority );
 THREAD_OFFSET_ASSERT( real_priority );
@@ -51,10 +52,6 @@ void _Thread_Initialize_information(
   uint32_t             maximum,
   bool                 is_string,
   uint32_t             maximum_name_length
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  bool                 supports_global
-#endif
 )
 {
   _Objects_Initialize_information(
@@ -64,12 +61,8 @@ void _Thread_Initialize_information(
     maximum,
     _Thread_Control_size,
     is_string,
-    maximum_name_length
-    #if defined(RTEMS_MULTIPROCESSING)
-      ,
-      supports_global,
-      NULL
-    #endif
+    maximum_name_length,
+    NULL
   );
 
   _Freechain_Initialize(
@@ -116,10 +109,6 @@ void _Thread_Handler_initialization(void)
     _Thread_Get_maximum_internal_threads(),
     false,                      /* true if names for this object are strings */
     8                           /* maximum length of each object's name */
-    #if defined(RTEMS_MULTIPROCESSING)
-      ,
-      false                       /* true if this is a global object class */
-    #endif
   );
 
 }

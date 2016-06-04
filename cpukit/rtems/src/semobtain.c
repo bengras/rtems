@@ -18,28 +18,31 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
-#include <rtems/rtems/status.h>
-#include <rtems/rtems/support.h>
-#include <rtems/rtems/attrimpl.h>
-#include <rtems/score/isr.h>
-#include <rtems/rtems/optionsimpl.h>
 #include <rtems/rtems/semimpl.h>
-#include <rtems/score/coremuteximpl.h>
-#include <rtems/score/coresemimpl.h>
-#include <rtems/score/threadimpl.h>
+#include <rtems/rtems/optionsimpl.h>
+#include <rtems/rtems/statusimpl.h>
 
-#include <rtems/score/interr.h>
-
-THREAD_WAIT_QUEUE_OBJECT_ASSERT(
+THREAD_QUEUE_OBJECT_ASSERT(
   Semaphore_Control,
-  Core_control.mutex.Wait_queue
+  Core_control.Wait_queue
 );
 
-THREAD_WAIT_QUEUE_OBJECT_ASSERT(
+THREAD_QUEUE_OBJECT_ASSERT(
   Semaphore_Control,
-  Core_control.semaphore.Wait_queue
+  Core_control.Mutex.Recursive.Mutex.Wait_queue
 );
+
+THREAD_QUEUE_OBJECT_ASSERT(
+  Semaphore_Control,
+  Core_control.Semaphore.Wait_queue
+);
+
+#if defined(RTEMS_SMP)
+THREAD_QUEUE_OBJECT_ASSERT(
+  Semaphore_Control,
+  Core_control.MRSP.Wait_queue
+);
+#endif
 
 rtems_status_code rtems_semaphore_obtain(
   rtems_id        id,
@@ -47,77 +50,83 @@ rtems_status_code rtems_semaphore_obtain(
   rtems_interval  timeout
 )
 {
-  Semaphore_Control              *the_semaphore;
-  Objects_Locations               location;
-  ISR_lock_Context                lock_context;
-  Thread_Control                 *executing;
-  rtems_attribute                 attribute_set;
-  bool                            wait;
+  Semaphore_Control    *the_semaphore;
+  Thread_queue_Context  queue_context;
+  Thread_Control       *executing;
+  bool                  wait;
+  Status_Control        status;
 
-  the_semaphore = _Semaphore_Get_interrupt_disable(
-    id,
-    &location,
-    &lock_context
-  );
-  switch ( location ) {
+  the_semaphore = _Semaphore_Get( id, &queue_context );
 
-    case OBJECTS_LOCAL:
-      executing = _Thread_Executing;
-      attribute_set = the_semaphore->attribute_set;
-      wait = !_Options_Is_no_wait( option_set );
-#if defined(RTEMS_SMP)
-      if ( _Attributes_Is_multiprocessor_resource_sharing( attribute_set ) ) {
-        MRSP_Status mrsp_status;
-
-        mrsp_status = _MRSP_Obtain(
-          &the_semaphore->Core_control.mrsp,
-          executing,
-          wait,
-          timeout,
-          &lock_context
-        );
-        return _Semaphore_Translate_MRSP_status_code( mrsp_status );
-      } else
-#endif
-      if ( !_Attributes_Is_counting_semaphore( attribute_set ) ) {
-        _CORE_mutex_Seize(
-          &the_semaphore->Core_control.mutex,
-          executing,
-          id,
-          wait,
-          timeout,
-          &lock_context
-        );
-        return _Semaphore_Translate_core_mutex_return_code(
-                  executing->Wait.return_code );
-      }
-
-      /* must be a counting semaphore */
-      _CORE_semaphore_Seize(
-        &the_semaphore->Core_control.semaphore,
-        executing,
-        id,
-        wait,
-        timeout,
-        &lock_context
-      );
-      return _Semaphore_Translate_core_semaphore_return_code(
-                  executing->Wait.return_code );
-
+  if ( the_semaphore == NULL ) {
 #if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-      return _Semaphore_MP_Send_request_packet(
-          SEMAPHORE_MP_OBTAIN_REQUEST,
-          id,
-          option_set,
-          timeout
-      );
+    return _Semaphore_MP_Obtain( id, option_set, timeout );
+#else
+    return RTEMS_INVALID_ID;
 #endif
-
-    case OBJECTS_ERROR:
-      break;
-
   }
 
-  return RTEMS_INVALID_ID;
+  executing = _Thread_Executing;
+  wait = !_Options_Is_no_wait( option_set );
+
+  switch ( the_semaphore->variant ) {
+    case SEMAPHORE_VARIANT_MUTEX_INHERIT_PRIORITY:
+      status = _CORE_recursive_mutex_Seize(
+        &the_semaphore->Core_control.Mutex.Recursive,
+        executing,
+        wait,
+        timeout,
+        _CORE_recursive_mutex_Seize_nested,
+        &queue_context
+      );
+      break;
+    case SEMAPHORE_VARIANT_MUTEX_PRIORITY_CEILING:
+      status = _CORE_ceiling_mutex_Seize(
+        &the_semaphore->Core_control.Mutex,
+        executing,
+        wait,
+        timeout,
+        _CORE_recursive_mutex_Seize_nested,
+        &queue_context
+      );
+      break;
+    case SEMAPHORE_VARIANT_MUTEX_NO_PROTOCOL:
+      status = _CORE_recursive_mutex_Seize_no_protocol(
+        &the_semaphore->Core_control.Mutex.Recursive,
+        _Semaphore_Get_operations( the_semaphore ),
+        executing,
+        wait,
+        timeout,
+        _CORE_recursive_mutex_Seize_nested,
+        &queue_context
+      );
+      break;
+#if defined(RTEMS_SMP)
+    case SEMAPHORE_VARIANT_MRSP:
+      status = _MRSP_Seize(
+        &the_semaphore->Core_control.MRSP,
+        executing,
+        wait,
+        timeout,
+        &queue_context
+      );
+      break;
+#endif
+    default:
+      _Assert(
+        the_semaphore->variant == SEMAPHORE_VARIANT_SIMPLE_BINARY
+          || the_semaphore->variant == SEMAPHORE_VARIANT_COUNTING
+      );
+      status = _CORE_semaphore_Seize(
+        &the_semaphore->Core_control.Semaphore,
+        _Semaphore_Get_operations( the_semaphore ),
+        executing,
+        wait,
+        timeout,
+        &queue_context
+      );
+      break;
+  }
+
+  return _Status_Get( status );
 }

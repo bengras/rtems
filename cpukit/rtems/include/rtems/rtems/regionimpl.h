@@ -18,6 +18,7 @@
 #define _RTEMS_RTEMS_REGIONIMPL_H
 
 #include <rtems/rtems/region.h>
+#include <rtems/score/apimutex.h>
 #include <rtems/score/heapimpl.h>
 #include <rtems/score/objectimpl.h>
 #include <rtems/score/threadqimpl.h>
@@ -65,22 +66,28 @@ RTEMS_INLINE_ROUTINE void _Region_Free (
   _Objects_Free( &_Region_Information, &the_region->Object );
 }
 
-/**
- *  @brief Region_Get
- *
- *  This function maps region IDs to region control blocks.
- *  If ID corresponds to a local region, then it returns
- *  the_region control pointer which maps to ID and location
- *  is set to OBJECTS_LOCAL.  Otherwise, location is set
- *  to OBJECTS_ERROR and the_region is undefined.
- */
-RTEMS_INLINE_ROUTINE Region_Control *_Region_Get (
-  Objects_Id         id,
-  Objects_Locations *location
-)
+RTEMS_INLINE_ROUTINE Region_Control *_Region_Get_and_lock( Objects_Id id )
 {
-  return (Region_Control *)
-    _Objects_Get_no_protection( &_Region_Information, id, location );
+  Region_Control *the_region;
+
+  _RTEMS_Lock_allocator();
+
+  the_region = (Region_Control *)
+    _Objects_Get_no_protection( id, &_Region_Information );
+
+  if ( the_region != NULL ) {
+    /* Keep allocator lock */
+    return the_region;
+  }
+
+  _RTEMS_Unlock_allocator();
+  return NULL;
+}
+
+RTEMS_INLINE_ROUTINE void _Region_Unlock( Region_Control *the_region )
+{
+  (void) the_region;
+  _RTEMS_Unlock_allocator();
 }
 
 /**
@@ -126,10 +133,6 @@ extern void _Region_Process_queue(Region_Control *the_region);
 
 #ifdef __cplusplus
 }
-#endif
-
-#if defined(RTEMS_MULTIPROCESSING)
-#include <rtems/rtems/regionmp.h>
 #endif
 
 #endif

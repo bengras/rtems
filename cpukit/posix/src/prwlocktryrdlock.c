@@ -18,58 +18,29 @@
 #include "config.h"
 #endif
 
-#include <pthread.h>
-#include <errno.h>
-
 #include <rtems/posix/rwlockimpl.h>
-#include <rtems/score/thread.h>
-
-/*
- *  pthread_rwlock_tryrdlock
- *
- *  This directive attempts to obtain a read only lock on an rwlock instance.
- *
- *  Input parameters:
- *    rwlock          - pointer to rwlock id
- *
- *  Output parameters:
- *    0          - if successful
- *    error code - if unsuccessful
- */
+#include <rtems/posix/posixapi.h>
 
 int pthread_rwlock_tryrdlock(
   pthread_rwlock_t  *rwlock
 )
 {
-  POSIX_RWLock_Control  *the_rwlock;
-  Objects_Locations      location;
-  Thread_Control        *executing;
+  POSIX_RWLock_Control *the_rwlock;
+  Thread_queue_Context  queue_context;
+  Status_Control        status;
 
-  the_rwlock = _POSIX_RWLock_Get( rwlock, &location );
-  switch ( location ) {
+  the_rwlock = _POSIX_RWLock_Get( rwlock, &queue_context );
 
-    case OBJECTS_LOCAL:
-
-      executing = _Thread_Executing;
-      _CORE_RWLock_Obtain_for_reading(
-        &the_rwlock->RWLock,
-        executing,
-        false,                  /* do not wait for the rwlock */
-        0
-      );
-
-
-      _Objects_Put( &the_rwlock->Object );
-      return _POSIX_RWLock_Translate_core_RWLock_return_code(
-        (CORE_RWLock_Status) executing->Wait.return_code
-      );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
-      break;
+  if ( the_rwlock == NULL ) {
+    return EINVAL;
   }
 
-  return EINVAL;
+  status = _CORE_RWLock_Seize_for_reading(
+    &the_rwlock->RWLock,
+    _Thread_Executing,
+    false,                  /* do not wait for the rwlock */
+    0,
+    &queue_context
+  );
+  return _POSIX_Get_error( status );
 }

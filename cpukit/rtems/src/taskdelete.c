@@ -19,55 +19,48 @@
 #endif
 
 #include <rtems/rtems/tasksimpl.h>
-#include <rtems/score/apimutex.h>
 #include <rtems/score/threadimpl.h>
-#include <rtems/config.h>
 
 rtems_status_code rtems_task_delete(
   rtems_id id
 )
 {
-  Thread_Control    *the_thread;
-  Objects_Locations  location;
-  bool               previous_life_protection;
+  Thread_Control   *the_thread;
+  ISR_lock_Context  lock_context;
+  Thread_Control   *executing;
+  Per_CPU_Control  *cpu_self;
 
-  previous_life_protection = _Thread_Set_life_protection( true );
-  the_thread = _Thread_Get( id, &location );
-  switch ( location ) {
+  the_thread = _Thread_Get( id, &lock_context );
 
-    case OBJECTS_LOCAL:
-      #if defined(RTEMS_MULTIPROCESSING)
-        if ( the_thread->is_global ) {
-          _Objects_MP_Close(
-            &_RTEMS_tasks_Information.Objects,
-            the_thread->Object.id
-          );
-          _RTEMS_tasks_MP_Send_process_packet(
-            RTEMS_TASKS_MP_ANNOUNCE_DELETE,
-            the_thread->Object.id,
-            0                                /* Not used */
-          );
-        }
-      #endif
-
-      _Thread_Close( the_thread, _Thread_Executing );
-
-      _Objects_Put( &the_thread->Object );
-      _Thread_Set_life_protection( previous_life_protection );
-      return RTEMS_SUCCESSFUL;
-
+  if ( the_thread == NULL ) {
 #if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-      _Thread_Dispatch();
-      _Thread_Set_life_protection( previous_life_protection );
+    if ( _Thread_MP_Is_remote( id ) ) {
       return RTEMS_ILLEGAL_ON_REMOTE_OBJECT;
+    }
 #endif
 
-    case OBJECTS_ERROR:
-      break;
+    return RTEMS_INVALID_ID;
   }
 
-  _Thread_Set_life_protection( previous_life_protection );
+  cpu_self = _Thread_Dispatch_disable_critical( &lock_context );
+  _ISR_lock_ISR_enable( &lock_context );
 
-  return RTEMS_INVALID_ID;
+  executing = _Per_CPU_Get_executing( cpu_self );
+
+  if ( the_thread == executing ) {
+    /*
+     * The Classic tasks are neither detached nor joinable.  In case of
+     * self deletion, they are detached, otherwise joinable by default.
+     */
+    _Thread_Exit(
+      executing,
+      THREAD_LIFE_TERMINATING | THREAD_LIFE_DETACHED,
+      NULL
+    );
+  } else {
+    _Thread_Close( the_thread, executing );
+  }
+
+  _Thread_Dispatch_enable( cpu_self );
+  return RTEMS_SUCCESSFUL;
 }

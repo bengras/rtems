@@ -18,58 +18,35 @@
 #include "config.h"
 #endif
 
-#include <pthread.h>
-#include <errno.h>
-
 #include <rtems/posix/barrierimpl.h>
-#include <rtems/score/threadimpl.h>
+#include <rtems/posix/posixapi.h>
 
-THREAD_WAIT_QUEUE_OBJECT_ASSERT( POSIX_Barrier_Control, Barrier.Wait_queue );
-
-/**
- * This directive allows a thread to wait at a barrier.
- *
- * @param[in] barrier is the barrier id
- *
- * @retval 0 if successful
- * @retval PTHREAD_BARRIER_SERIAL_THREAD if successful
- * @retval error_code if unsuccessful
- */
+THREAD_QUEUE_OBJECT_ASSERT( POSIX_Barrier_Control, Barrier.Wait_queue );
 
 int pthread_barrier_wait(
   pthread_barrier_t *barrier
 )
 {
-  POSIX_Barrier_Control   *the_barrier = NULL;
-  Objects_Locations        location;
-  Thread_Control          *executing;
+  POSIX_Barrier_Control *the_barrier;
+  Thread_queue_Context   queue_context;
+  Status_Control         status;
 
-  if ( !barrier )
+  if ( barrier == NULL ) {
     return EINVAL;
-
-  the_barrier = _POSIX_Barrier_Get( barrier, &location );
-  switch ( location ) {
-
-    case OBJECTS_LOCAL:
-      executing = _Thread_Executing;
-      _CORE_barrier_Wait(
-        &the_barrier->Barrier,
-        executing,
-        true,
-        0,
-        NULL,
-        0
-      );
-      _Objects_Put( &the_barrier->Object );
-      return _POSIX_Barrier_Translate_core_barrier_return_code(
-                executing->Wait.return_code );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
-      break;
   }
 
-  return EINVAL;
+  the_barrier = _POSIX_Barrier_Get( barrier, &queue_context );
+
+  if ( the_barrier == NULL ) {
+    return EINVAL;
+  }
+
+  status = _CORE_barrier_Seize(
+    &the_barrier->Barrier,
+    _Thread_Executing,
+    true,
+    WATCHDOG_NO_TIMEOUT,
+    &queue_context
+  );
+  return _POSIX_Get_error( status );
 }

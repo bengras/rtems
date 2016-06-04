@@ -27,85 +27,42 @@ extern "C" {
 #endif
 
 /**
+ * @brief Classic semaphore variants.
+ *
+ * Must be in synchronization with Semaphore_Control::variant.
+ */
+typedef enum {
+  SEMAPHORE_VARIANT_MUTEX_INHERIT_PRIORITY,
+  SEMAPHORE_VARIANT_MUTEX_PRIORITY_CEILING,
+  SEMAPHORE_VARIANT_MUTEX_NO_PROTOCOL,
+  SEMAPHORE_VARIANT_SIMPLE_BINARY,
+  SEMAPHORE_VARIANT_COUNTING
+#if defined(RTEMS_SMP)
+  ,
+  SEMAPHORE_VARIANT_MRSP
+#endif
+} Semaphore_Variant;
+
+typedef enum {
+  SEMAPHORE_DISCIPLINE_PRIORITY,
+  SEMAPHORE_DISCIPLINE_FIFO
+} Semaphore_Discipline;
+
+/**
  *  The following defines the information control block used to manage
  *  this class of objects.
  */
 extern Objects_Information _Semaphore_Information;
 
-extern const rtems_status_code
-  _Semaphore_Translate_core_mutex_return_code_[];
-
-extern const rtems_status_code
-  _Semaphore_Translate_core_semaphore_return_code_[];
-
-/**
- * @brief Semaphore Translate Core Mutex Return Code
- *
- * This function returns a RTEMS status code based on the mutex
- * status code specified.
- *
- * @param[in] status is the mutex status code to translate
- *
- * @retval translated RTEMS status code
- */
-RTEMS_INLINE_ROUTINE rtems_status_code
-_Semaphore_Translate_core_mutex_return_code(
-  uint32_t   status
+RTEMS_INLINE_ROUTINE const Thread_queue_Operations *_Semaphore_Get_operations(
+  const Semaphore_Control *the_semaphore
 )
 {
-  /*
-   *  If this thread is blocking waiting for a result on a remote operation.
-   */
-  #if defined(RTEMS_MULTIPROCESSING)
-    if ( _Thread_Is_proxy_blocking(status) )
-      return RTEMS_PROXY_BLOCKING;
-  #endif
-
-  /*
-   *  Internal consistency check for bad status from SuperCore
-   */
-  #if defined(RTEMS_DEBUG)
-    if ( status > CORE_MUTEX_STATUS_LAST )
-      return RTEMS_INTERNAL_ERROR;
-  #endif
-  return _Semaphore_Translate_core_mutex_return_code_[status];
-}
-
-#if defined(RTEMS_SMP)
-RTEMS_INLINE_ROUTINE rtems_status_code
-_Semaphore_Translate_MRSP_status_code( MRSP_Status mrsp_status )
-{
-  return (rtems_status_code) mrsp_status;
-}
-#endif
-
-/**
- * @brief Semaphore Translate Core Semaphore Return Code
- *
- * This function returns a RTEMS status code based on the semaphore
- * status code specified.
- *
- * @param[in] status is the semaphore status code to translate
- *
- * @retval translated RTEMS status code
- */
-RTEMS_INLINE_ROUTINE rtems_status_code
-_Semaphore_Translate_core_semaphore_return_code(
-  uint32_t   status
-)
-{
-  #if defined(RTEMS_MULTIPROCESSING)
-    if ( _Thread_Is_proxy_blocking(status) )
-      return RTEMS_PROXY_BLOCKING;
-  #endif
-  /*
-   *  Internal consistency check for bad status from SuperCore
-   */
-  #if defined(RTEMS_DEBUG)
-    if ( status > CORE_SEMAPHORE_STATUS_LAST )
-      return RTEMS_INTERNAL_ERROR;
-  #endif
-  return _Semaphore_Translate_core_semaphore_return_code_[status];
+  if ( the_semaphore->discipline == SEMAPHORE_DISCIPLINE_PRIORITY ) {
+    return &_Thread_queue_Operations_priority;
+  } else {
+    return &_Thread_queue_Operations_FIFO;
+  }
 }
 
 /**
@@ -134,48 +91,16 @@ RTEMS_INLINE_ROUTINE void _Semaphore_Free (
   _Objects_Free( &_Semaphore_Information, &the_semaphore->Object );
 }
 
-/**
- *  @brief Maps semaphore IDs to semaphore control blocks.
- *
- *  This function maps semaphore IDs to semaphore control blocks.
- *  If ID corresponds to a local semaphore, then it returns
- *  the_semaphore control pointer which maps to ID and location
- *  is set to OBJECTS_LOCAL.  if the semaphore ID is global and
- *  resides on a remote node, then location is set to OBJECTS_REMOTE,
- *  and the_semaphore is undefined.  Otherwise, location is set
- *  to OBJECTS_ERROR and the_semaphore is undefined.
- */
-RTEMS_INLINE_ROUTINE Semaphore_Control *_Semaphore_Get (
-  Objects_Id         id,
-  Objects_Locations *location
+RTEMS_INLINE_ROUTINE Semaphore_Control *_Semaphore_Get(
+  Objects_Id            id,
+  Thread_queue_Context *queue_context
 )
 {
-  return (Semaphore_Control *)
-    _Objects_Get( &_Semaphore_Information, id, location );
-}
-
-/**
- *  @brief Maps semaphore IDs to semaphore control blocks.
- *
- *  This function maps semaphore IDs to semaphore control blocks.
- *  If ID corresponds to a local semaphore, then it returns
- *  the_semaphore control pointer which maps to ID and location
- *  is set to OBJECTS_LOCAL.  if the semaphore ID is global and
- *  resides on a remote node, then location is set to OBJECTS_REMOTE,
- *  and the_semaphore is undefined.  Otherwise, location is set
- *  to OBJECTS_ERROR and the_semaphore is undefined.
- */
-RTEMS_INLINE_ROUTINE Semaphore_Control *_Semaphore_Get_interrupt_disable (
-  Objects_Id         id,
-  Objects_Locations *location,
-  ISR_lock_Context  *lock_context
-)
-{
-  return (Semaphore_Control *) _Objects_Get_isr_disable(
-    &_Semaphore_Information,
+  _Thread_queue_Context_initialize( queue_context );
+  return (Semaphore_Control *) _Objects_Get(
     id,
-    location,
-    lock_context
+    &queue_context->Lock_context,
+    &_Semaphore_Information
   );
 }
 

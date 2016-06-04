@@ -54,11 +54,6 @@ int _POSIX_Semaphore_Create_support(
   if (pshared != 0)
     rtems_set_errno_and_return_minus_one( ENOSYS );
 
-  the_semaphore = _POSIX_Semaphore_Allocate_unprotected();
-  if ( !the_semaphore ) {
-    rtems_set_errno_and_return_minus_one( ENOSPC );
-  }
-
   /*
    * Make a copy of the user's string for name just in case it was
    * dynamically constructed.
@@ -66,11 +61,16 @@ int _POSIX_Semaphore_Create_support(
   if ( name_arg != NULL ) {
     name = _Workspace_String_duplicate( name_arg, name_len );
     if ( !name ) {
-      _POSIX_Semaphore_Free( the_semaphore );
       rtems_set_errno_and_return_minus_one( ENOMEM );
     }
   } else {
     name = NULL;
+  }
+
+  the_semaphore = _POSIX_Semaphore_Allocate_unprotected();
+  if ( !the_semaphore ) {
+    _Workspace_Free( name );
+    rtems_set_errno_and_return_minus_one( ENOSPC );
   }
 
   the_semaphore->process_shared  = pshared;
@@ -92,11 +92,7 @@ int _POSIX_Semaphore_Create_support(
    *  thing is certain, no matter what we decide, it won't be
    *  the same as  all other POSIX implementations. :)
    */
-  _CORE_semaphore_Initialize(
-    &the_semaphore->Semaphore,
-    CORE_SEMAPHORE_DISCIPLINES_FIFO,
-    value
-  );
+  _CORE_semaphore_Initialize( &the_semaphore->Semaphore, value );
 
   /*
    *  Make the semaphore available for use.

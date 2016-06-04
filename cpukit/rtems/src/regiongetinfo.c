@@ -18,46 +18,27 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
-#include <rtems/rtems/status.h>
-#include <rtems/rtems/support.h>
-#include <rtems/rtems/options.h>
 #include <rtems/rtems/regionimpl.h>
-#include <rtems/score/apimutex.h>
-#include <rtems/score/thread.h>
 
 rtems_status_code rtems_region_get_information(
   rtems_id                id,
   Heap_Information_block *the_info
 )
 {
-  Objects_Locations        location;
-  rtems_status_code        return_status;
-  Region_Control          *the_region;
+  Region_Control *the_region;
 
-  if ( !the_info )
+  if ( the_info == NULL ) {
     return RTEMS_INVALID_ADDRESS;
+  }
 
-  _RTEMS_Lock_allocator();
+  the_region = _Region_Get_and_lock( id );
 
-    the_region = _Region_Get( id, &location );
-    switch ( location ) {
+  if ( the_region == NULL ) {
+    return RTEMS_INVALID_ID;
+  }
 
-      case OBJECTS_LOCAL:
-        _Heap_Get_information( &the_region->Memory, the_info );
-        return_status = RTEMS_SUCCESSFUL;
-        break;
+  _Heap_Get_information( &the_region->Memory, the_info );
 
-#if defined(RTEMS_MULTIPROCESSING)
-      case OBJECTS_REMOTE:        /* this error cannot be returned */
-#endif
-
-      case OBJECTS_ERROR:
-      default:
-        return_status = RTEMS_INVALID_ID;
-        break;
-    }
-
-  _RTEMS_Unlock_allocator();
-  return return_status;
+  _Region_Unlock( the_region );
+  return RTEMS_SUCCESSFUL;
 }

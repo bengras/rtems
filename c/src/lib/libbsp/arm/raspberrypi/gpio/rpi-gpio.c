@@ -14,12 +14,15 @@
  *  http://www.rtems.org/license/LICENSE.
  */
 
+#include <bsp.h>
 #include <bsp/raspberrypi.h>
 #include <bsp/irq-generic.h>
 #include <bsp/gpio.h>
 #include <bsp/rpi-gpio.h>
 
 #include <stdlib.h>
+
+RTEMS_INTERRUPT_LOCK_DEFINE( static, rtems_gpio_bsp_lock, "rtems_gpio_bsp_lock" );
 
 /* Calculates a bitmask to assign an alternate function to a given pin. */
 #define SELECT_PIN_FUNCTION(fn, pn) (fn << ((pn % 10) * 3))
@@ -52,15 +55,18 @@ static rtems_status_code rpi_select_pin_function(
   uint32_t type
 ) {
   /* Calculate the pin function select register address. */
-  volatile unsigned int *pin_addr = (unsigned int *) BCM2835_GPIO_REGS_BASE +
-                                    (pin / 10);
+  volatile uint32_t *pin_addr = (uint32_t *) BCM2835_GPIO_REGS_BASE +
+                                             (pin / 10);
+  uint32_t reg_old;
+  uint32_t reg_new;
+  rtems_interrupt_lock_context lock_context;
 
-  if ( type == RPI_DIGITAL_IN ) {
-    *(pin_addr) &= ~SELECT_PIN_FUNCTION(RPI_DIGITAL_IN, pin);
-  }
-  else {
-    *(pin_addr) |= SELECT_PIN_FUNCTION(type, pin);
-  }
+  rtems_interrupt_lock_acquire(&rtems_gpio_bsp_lock, &lock_context);
+  reg_new = reg_old = *pin_addr;
+  reg_new &= ~SELECT_PIN_FUNCTION(RPI_ALT_FUNC_MASK, pin);
+  reg_new |= SELECT_PIN_FUNCTION(type, pin);
+  *pin_addr = reg_new;
+  rtems_interrupt_lock_release(&rtems_gpio_bsp_lock, &lock_context);
 
   return RTEMS_SUCCESSFUL;
 }

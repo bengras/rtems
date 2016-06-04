@@ -19,15 +19,17 @@
 #endif
 
 #include <rtems/rtems/regionimpl.h>
-#include <rtems/score/apimutex.h>
+#include <rtems/score/status.h>
 #include <rtems/score/threadqimpl.h>
 
 void _Region_Process_queue(
   Region_Control *the_region
 )
 {
-  Thread_Control *the_thread;
-  void           *the_segment;
+  Per_CPU_Control *cpu_self;
+  Thread_Control  *the_thread;
+  void            *the_segment;
+
   /*
    *  Switch from using the memory allocation mutex to using a
    *  dispatching disabled critical section.  We have to do this
@@ -38,8 +40,8 @@ void _Region_Process_queue(
    *        since we do not want to open a window where a context
    *        switch could occur.
    */
-  _Thread_Disable_dispatch();
-  _RTEMS_Unlock_allocator();
+  cpu_self = _Thread_Dispatch_disable();
+  _Region_Unlock( the_region );
 
   /*
    *  NOTE: The following loop is O(n) where n is the number of
@@ -63,9 +65,9 @@ void _Region_Process_queue(
       break;
 
     *(void **)the_thread->Wait.return_argument = the_segment;
-    the_region->number_of_used_blocks += 1;
     _Thread_queue_Extract( the_thread );
-    the_thread->Wait.return_code = RTEMS_SUCCESSFUL;
+    the_thread->Wait.return_code = STATUS_SUCCESSFUL;
   }
-  _Thread_Enable_dispatch();
+
+  _Thread_Dispatch_enable( cpu_self );
 }

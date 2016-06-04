@@ -10,6 +10,7 @@
 #ifndef _RTEMS_RTEMS_BSDNET_INTERNAL_H
 #define _RTEMS_RTEMS_BSDNET_INTERNAL_H
 
+#include <sys/_types.h>
 #include <rtems.h>
 #include <rtems/fs.h>
 #include <rtems/score/timecounter.h>
@@ -18,10 +19,10 @@
 extern "C" {
 #endif
 
-typedef	unsigned int		vm_offset_t;
-typedef	long long		vm_ooffset_t;
-typedef	unsigned int		vm_pindex_t;
-typedef	unsigned int		vm_size_t;
+typedef	__uintptr_t		vm_offset_t;
+typedef	__intptr_t		vm_ooffset_t;
+typedef	__uintptr_t		vm_pindex_t;
+typedef	__uintptr_t		vm_size_t;
 
 #define _BSD_OFF_T_	int32_t
 #define _BSD_PID_T_	rtems_id
@@ -222,6 +223,14 @@ int ioctl (int, ioctl_command_t, ...);
 #endif
 
 struct socket *rtems_bsdnet_fdToSocket(int fd);
+
+void sysctl_register_all(void *);
+
+void rtems_set_udp_buffer_sizes(u_long, u_long);
+
+void rtems_set_tcp_buffer_sizes(u_long, u_long);
+
+void rtems_set_sb_efficiency(u_long);
 
 #ifdef __cplusplus
 }

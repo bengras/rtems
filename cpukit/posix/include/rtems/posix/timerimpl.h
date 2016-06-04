@@ -97,10 +97,10 @@ RTEMS_INLINE_ROUTINE POSIX_Timer_Control *_POSIX_Timer_Get (
   ISR_lock_Context  *lock_context
 )
 {
-  return (POSIX_Timer_Control *) _Objects_Get_local(
-    &_POSIX_Timer_Information,
+  return (POSIX_Timer_Control *) _Objects_Get(
     (Objects_Id) id,
-    lock_context
+    lock_context,
+    &_POSIX_Timer_Information
   );
 }
 

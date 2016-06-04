@@ -65,6 +65,11 @@ typedef struct {
   Objects_Id                      proxy_id;
 }   Semaphore_MP_Packet;
 
+RTEMS_INLINE_ROUTINE bool _Semaphore_MP_Is_remote( Objects_Id id )
+{
+  return _Objects_MP_Is_remote( id, &_Semaphore_Information );
+}
+
 /**
  *  @brief Semaphore MP Send Process Packet
  *
@@ -79,29 +84,18 @@ void _Semaphore_MP_Send_process_packet (
 );
 
 /**
- *  @brief Semaphore MP Send Request Packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive operation can be initiated on another node.
+ * @brief Issues a remote rtems_semaphore_obtain() request.
  */
-rtems_status_code _Semaphore_MP_Send_request_packet (
-  Semaphore_MP_Remote_operations operation,
-  Objects_Id                     semaphore_id,
-  rtems_option                   option_set,
-  rtems_interval                 timeout
+rtems_status_code _Semaphore_MP_Obtain(
+  rtems_id        id,
+  rtems_option    option_set,
+  rtems_interval  timeout
 );
 
 /**
- *  @brief Semaphore MP Send Response Packet
- *
- *  This routine performs a remote procedure call so that a
- *  directive can be performed on another node.
+ * @brief Issues a remote rtems_semaphore_release() request.
  */
-void _Semaphore_MP_Send_response_packet (
-  Semaphore_MP_Remote_operations  operation,
-  Objects_Id                      semaphore_id,
-  Thread_Control                 *the_thread
-);
+rtems_status_code _Semaphore_MP_Release( rtems_id id );
 
 /**
  *  @brief Semaphore MP Process Packet
@@ -136,13 +130,6 @@ void _Semaphore_MP_Send_extract_proxy (
   Thread_Control *the_thread,
   Objects_Id      id
 );
-
-/**
- *  @brief Semaphore MP Get Packet
- *
- *  This function is used to obtain a semaphore mp packet.
- */
-Semaphore_MP_Packet *_Semaphore_MP_Get_packet ( void );
 
 /**
  * @brief Semaphore Core Mutex MP Support

@@ -25,8 +25,6 @@
   #include <semaphore.h>
   #include <string.h>
   #include <pthread.h>
-
-  #include <rtems/posix/mqueueimpl.h>
 #endif
 
 const char rtems_test_name[] = "SPTHREADQ 1";
@@ -121,9 +119,6 @@ static void posix_worker(test_context *ctx)
   int rv;
   int eno;
   char buf[1];
-  POSIX_Message_queue_Control_fd *the_mq_fd;
-  Objects_Locations location;
-  ISR_lock_Context lock_context;
 
   wake_up_master(ctx);
   rtems_test_assert(get_wait_id(ctx) == ctx->psem);
@@ -161,15 +156,7 @@ static void posix_worker(test_context *ctx)
   rtems_test_assert(eno == 0);
 
   wake_up_master(ctx);
-  the_mq_fd = _POSIX_Message_queue_Get_fd_interrupt_disable(
-    ctx->pmq,
-    &location,
-    &lock_context
-  );
-  _ISR_lock_ISR_enable(&lock_context);
-  rtems_test_assert(the_mq_fd != NULL);
-  rtems_test_assert(location == OBJECTS_LOCAL);
-  rtems_test_assert(get_wait_id(ctx) == the_mq_fd->Queue->Object.id);
+  rtems_test_assert(get_wait_id(ctx) == ctx->pmq);
 
   buf[0] = 'x';
   rv = mq_send(ctx->pmq, &buf[0], sizeof(buf), 0);
@@ -366,16 +353,14 @@ static rtems_task Init(
   TEST_BEGIN();
 
   puts( "Init - _Thread_queue_Extract - thread not blocked on a thread queue" );
-  _Thread_Disable_dispatch();
-  _Thread_queue_Extract( _Thread_Executing );
-  _Thread_Enable_dispatch();
+  _Thread_queue_Extract( _Thread_Get_executing() );
   /* is there more to check? */
 
   test_context_init(ctx);
   test_classic_obj(ctx);
   test_posix_obj(ctx);
 
-  rtems_test_assert( queue.Queue.heads == NULL );
+  rtems_test_assert( _Thread_queue_Is_empty( &queue.Queue ) );
 
   TEST_END();
   rtems_test_exit(0);
@@ -397,7 +382,6 @@ static rtems_task Init(
   #define CONFIGURE_MAXIMUM_POSIX_CONDITION_VARIABLES 1
   #define CONFIGURE_MAXIMUM_POSIX_RWLOCKS 1
   #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES 1
-  #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS 1
   #define CONFIGURE_MESSAGE_BUFFER_MEMORY \
     (2 * CONFIGURE_MESSAGE_BUFFERS_FOR_QUEUE(1, 1))
 #else

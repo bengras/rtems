@@ -19,78 +19,74 @@
 #endif
 
 #include <rtems/score/corerwlockimpl.h>
+#include <rtems/score/threadimpl.h>
 #include <rtems/score/threadqimpl.h>
 #include <rtems/score/statesimpl.h>
 #include <rtems/score/watchdog.h>
 
-void _CORE_RWLock_Obtain_for_reading(
-  CORE_RWLock_Control *the_rwlock,
-  Thread_Control      *executing,
-  bool                 wait,
-  Watchdog_Interval    timeout
+Status_Control _CORE_RWLock_Seize_for_reading(
+  CORE_RWLock_Control  *the_rwlock,
+  Thread_Control       *executing,
+  bool                  wait,
+  Watchdog_Interval     timeout,
+  Thread_queue_Context *queue_context
 )
 {
-  ISR_lock_Context lock_context;
-
   /*
    *  If unlocked, then OK to read.
    *  If locked for reading and no waiters, then OK to read.
    *  If any thread is waiting, then we wait.
    */
 
-  _Thread_queue_Acquire( &the_rwlock->Wait_queue, &lock_context );
-    switch ( the_rwlock->current_state ) {
-      case CORE_RWLOCK_UNLOCKED:
-	the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_READING;
-	the_rwlock->number_of_readers += 1;
-	_Thread_queue_Release( &the_rwlock->Wait_queue, &lock_context );
-	executing->Wait.return_code = CORE_RWLOCK_SUCCESSFUL;
-	return;
+  _CORE_RWLock_Acquire_critical( the_rwlock, queue_context );
 
-      case CORE_RWLOCK_LOCKED_FOR_READING: {
-        Thread_Control *waiter;
-        waiter = _Thread_queue_First_locked(
-          &the_rwlock->Wait_queue,
-          CORE_RWLOCK_TQ_OPERATIONS
-        );
-        if ( !waiter ) {
-	  the_rwlock->number_of_readers += 1;
-	  _Thread_queue_Release( &the_rwlock->Wait_queue, &lock_context );
-	  executing->Wait.return_code = CORE_RWLOCK_SUCCESSFUL;
-          return;
-        }
-        break;
+  switch ( the_rwlock->current_state ) {
+    case CORE_RWLOCK_UNLOCKED:
+      the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_READING;
+      the_rwlock->number_of_readers += 1;
+      _CORE_RWLock_Release( the_rwlock, queue_context );
+      return STATUS_SUCCESSFUL;
+
+    case CORE_RWLOCK_LOCKED_FOR_READING: {
+      Thread_Control *waiter;
+      waiter = _Thread_queue_First_locked(
+        &the_rwlock->Wait_queue,
+        CORE_RWLOCK_TQ_OPERATIONS
+      );
+      if ( !waiter ) {
+        the_rwlock->number_of_readers += 1;
+        _CORE_RWLock_Release( the_rwlock, queue_context );
+        return STATUS_SUCCESSFUL;
       }
-      case CORE_RWLOCK_LOCKED_FOR_WRITING:
-        break;
+      break;
     }
+    case CORE_RWLOCK_LOCKED_FOR_WRITING:
+      break;
+  }
 
-    /*
-     *  If the thread is not willing to wait, then return immediately.
-     */
+  /*
+   *  If the thread is not willing to wait, then return immediately.
+   */
 
-    if ( !wait ) {
-      _Thread_queue_Release( &the_rwlock->Wait_queue, &lock_context );
-      executing->Wait.return_code = CORE_RWLOCK_UNAVAILABLE;
-      return;
-    }
+  if ( !wait ) {
+    _CORE_RWLock_Release( the_rwlock, queue_context );
+    return STATUS_UNAVAILABLE;
+  }
 
-    /*
-     *  We need to wait to enter this critical section
-     */
+  /*
+   *  We need to wait to enter this critical section
+   */
 
-    executing->Wait.option      = CORE_RWLOCK_THREAD_WAITING_FOR_READ;
-    executing->Wait.return_code = CORE_RWLOCK_SUCCESSFUL;
+  executing->Wait.option = CORE_RWLOCK_THREAD_WAITING_FOR_READ;
 
-    _Thread_queue_Enqueue_critical(
-       &the_rwlock->Wait_queue.Queue,
-       CORE_RWLOCK_TQ_OPERATIONS,
-       executing,
-       STATES_WAITING_FOR_RWLOCK,
-       timeout,
-       CORE_RWLOCK_TIMEOUT,
-       &lock_context
-    );
-
-    /* return to API level so it can dispatch and we block */
+  _Thread_queue_Context_set_expected_level( queue_context, 1 );
+  _Thread_queue_Enqueue_critical(
+     &the_rwlock->Wait_queue.Queue,
+     CORE_RWLOCK_TQ_OPERATIONS,
+     executing,
+     STATES_WAITING_FOR_RWLOCK,
+     timeout,
+     queue_context
+  );
+  return _Thread_Wait_get_status( executing );
 }

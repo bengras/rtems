@@ -17,8 +17,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id$"
-
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -67,8 +65,6 @@
 #ifdef AT_CHANGE
 #include "atcp.h"
 #endif
-
-static const char rcsid[] = RCSID;
 
 /* interface vars */
 char ifname[32];		/* Interface name */
@@ -556,7 +552,7 @@ struct protocol_list {
 /*
  * protocol_name - find a name for a PPP protocol.
  */
-const char *
+static const char *
 protocol_name(
     int proto)
 {

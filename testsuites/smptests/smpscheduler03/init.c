@@ -100,12 +100,12 @@ static rtems_id start_task(rtems_task_priority prio)
 
 static Thread_Control *get_thread_by_id(rtems_id task_id)
 {
-  Objects_Locations location;
+  ISR_lock_Context lock_context;
   Thread_Control *thread;
 
-  thread = _Thread_Get(task_id, &location);
-  rtems_test_assert(location == OBJECTS_LOCAL);
-  _Thread_Enable_dispatch();
+  thread = _Thread_Get(task_id, &lock_context);
+  rtems_test_assert(thread != NULL);
+  _ISR_lock_ISR_enable(&lock_context);
 
   return thread;
 }
@@ -193,11 +193,15 @@ static Thread_Control *change_priority_op(
   bool prepend_it
 )
 {
-  const Scheduler_Control *scheduler = _Scheduler_Get(thread);
+  const Scheduler_Control *scheduler;
+  ISR_lock_Context state_lock_context;
+  ISR_lock_Context scheduler_lock_context;
   Thread_Control *needs_help;
-  ISR_lock_Context lock_context;
 
-  _Scheduler_Acquire(thread, &lock_context);
+  _Thread_State_acquire( thread, &state_lock_context );
+  scheduler = _Scheduler_Get( thread );
+  _Scheduler_Acquire_critical( scheduler, &scheduler_lock_context );
+
   thread->current_priority = new_priority;
   needs_help = (*scheduler->Operations.change_priority)(
     scheduler,
@@ -205,7 +209,9 @@ static Thread_Control *change_priority_op(
     new_priority,
     prepend_it
   );
-  _Scheduler_Release(thread, &lock_context);
+
+  _Scheduler_Release_critical( scheduler, &scheduler_lock_context );
+  _Thread_State_release( thread, &state_lock_context );
 
   return needs_help;
 }
@@ -302,13 +308,19 @@ static void test_change_priority_op(void)
 
 static Thread_Control *yield_op(Thread_Control *thread)
 {
-  const Scheduler_Control *scheduler = _Scheduler_Get(thread);
+  const Scheduler_Control *scheduler;
+  ISR_lock_Context state_lock_context;
+  ISR_lock_Context scheduler_lock_context;
   Thread_Control *needs_help;
-  ISR_lock_Context lock_context;
 
-  _Scheduler_Acquire(thread, &lock_context);
+  _Thread_State_acquire( thread, &state_lock_context );
+  scheduler = _Scheduler_Get( thread );
+  _Scheduler_Acquire_critical( scheduler, &scheduler_lock_context );
+
   needs_help = (*scheduler->Operations.yield)(scheduler, thread);
-  _Scheduler_Release(thread, &lock_context);
+
+  _Scheduler_Release_critical( scheduler, &scheduler_lock_context );
+  _Thread_State_release( thread, &state_lock_context );
 
   return needs_help;
 }
@@ -429,23 +441,35 @@ static void test_yield_op(void)
 
 static void block_op(Thread_Control *thread)
 {
-  const Scheduler_Control *scheduler = _Scheduler_Get(thread);
-  ISR_lock_Context lock_context;
+  const Scheduler_Control *scheduler;
+  ISR_lock_Context state_lock_context;
+  ISR_lock_Context scheduler_lock_context;
 
-  _Scheduler_Acquire(thread, &lock_context);
+  _Thread_State_acquire( thread, &state_lock_context );
+  scheduler = _Scheduler_Get( thread );
+  _Scheduler_Acquire_critical( scheduler, &scheduler_lock_context );
+
   (*scheduler->Operations.block)(scheduler, thread);
-  _Scheduler_Release(thread, &lock_context);
+
+  _Scheduler_Release_critical( scheduler, &scheduler_lock_context );
+  _Thread_State_release( thread, &state_lock_context );
 }
 
 static Thread_Control *unblock_op(Thread_Control *thread)
 {
-  const Scheduler_Control *scheduler = _Scheduler_Get(thread);
+  const Scheduler_Control *scheduler;
+  ISR_lock_Context state_lock_context;
+  ISR_lock_Context scheduler_lock_context;
   Thread_Control *needs_help;
-  ISR_lock_Context lock_context;
 
-  _Scheduler_Acquire(thread, &lock_context);
+  _Thread_State_acquire( thread, &state_lock_context );
+  scheduler = _Scheduler_Get( thread );
+  _Scheduler_Acquire_critical( scheduler, &scheduler_lock_context );
+
   needs_help = (*scheduler->Operations.unblock)(scheduler, thread);
-  _Scheduler_Release(thread, &lock_context);
+
+  _Scheduler_Release_critical( scheduler, &scheduler_lock_context );
+  _Thread_State_release( thread, &state_lock_context );
 
   return needs_help;
 }

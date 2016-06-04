@@ -18,13 +18,8 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
 #include <rtems/config.h>
 #include <rtems/sysinit.h>
-#include <rtems/rtems/status.h>
-#include <rtems/rtems/support.h>
-#include <rtems/rtems/attrimpl.h>
-#include <rtems/rtems/options.h>
 #include <rtems/rtems/semimpl.h>
 
 Objects_Information _Semaphore_Information;
@@ -39,12 +34,8 @@ static void _Semaphore_Manager_initialization(void)
                                  /* maximum objects of this class */
     sizeof( Semaphore_Control ), /* size of this object's control block */
     false,                       /* true if the name is a string */
-    RTEMS_MAXIMUM_NAME_LENGTH    /* maximum length of an object name */
-#if defined(RTEMS_MULTIPROCESSING)
-    ,
-    true,                        /* true if this is a global object class */
+    RTEMS_MAXIMUM_NAME_LENGTH,   /* maximum length of an object name */
     _Semaphore_MP_Send_extract_proxy /* Proxy extraction support callout */
-#endif
   );
 
   /*

@@ -151,7 +151,7 @@ rtems_task Task_1(
    *  No preempt .. nested
    */
 
-  _Thread_Disable_dispatch();
+  _Thread_Dispatch_disable();
 
   Interrupt_nest = 1;
 
@@ -165,7 +165,7 @@ rtems_task Task_1(
 #endif
   Interrupt_return_time = benchmark_timer_read();
 
-  _Thread_Unnest_dispatch();
+  _Thread_Dispatch_enable( _Per_CPU_Get() );
 
   put_time(
     "rtems interrupt: entry overhead returns to nested interrupt",
@@ -188,7 +188,7 @@ rtems_task Task_1(
    */
 
 #if defined(RTEMS_SMP)
-  _ISR_Disable_without_giant(level);
+  _ISR_Local_disable(level);
 #endif
 
   _Thread_Executing =
@@ -197,7 +197,7 @@ rtems_task Task_1(
   _Thread_Dispatch_necessary = 1;
 
 #if defined(RTEMS_SMP)
-  _ISR_Enable_without_giant(level);
+  _ISR_Local_enable(level);
 #endif
 
   Interrupt_occurred = 0;
@@ -225,9 +225,15 @@ rtems_task Task_2(
 )
 {
   Thread_Control *executing = _Thread_Get_executing();
-  Scheduler_priority_Context *scheduler_context =
-    _Scheduler_priority_Get_context( _Scheduler_Get( executing ) );
-  ISR_lock_Context lock_context;
+  const Scheduler_Control    *scheduler;
+  Scheduler_priority_Context *scheduler_context;
+  ISR_lock_Context state_lock_context;
+  ISR_lock_Context scheduler_lock_context;
+
+  _Thread_State_acquire( executing, &state_lock_context );
+  scheduler = _Scheduler_Get( executing );
+  scheduler_context = _Scheduler_priority_Get_context( scheduler );
+  _Thread_State_release( executing, &state_lock_context );
 
 #if (MUST_WAIT_FOR_INTERRUPT == 1)
   while ( Interrupt_occurred == 0 );
@@ -256,14 +262,16 @@ rtems_task Task_2(
    *  Switch back to the other task to exit the test.
    */
 
-  _Scheduler_Acquire( executing, &lock_context );
+  _Thread_State_acquire( executing, &state_lock_context );
+  _Scheduler_Acquire_critical( scheduler, &scheduler_lock_context );
 
   _Thread_Executing =
         (Thread_Control *) _Chain_First(&scheduler_context->Ready[LOW_PRIORITY]);
 
   _Thread_Dispatch_necessary = 1;
 
-  _Scheduler_Release( executing, &lock_context );
+  _Scheduler_Release_critical( scheduler, &scheduler_lock_context );
+  _Thread_State_release( executing, &state_lock_context );
 
   _Thread_Dispatch();
 

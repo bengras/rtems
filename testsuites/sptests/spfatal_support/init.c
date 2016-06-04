@@ -22,7 +22,7 @@ static void print_test_begin_message(void)
 
   if (!done) {
     done = true;
-    rtems_test_begink();
+    TEST_BEGIN();
   }
 }
 
@@ -43,7 +43,7 @@ void Put_Error( uint32_t source, uint32_t error )
   }
   else if (source == INTERNAL_ERROR_RTEMS_API ){
     if (error >  RTEMS_NOT_IMPLEMENTED )
-      printk("Unknown Internal Rtems Error (0x%08x)", error);
+      printk("Unknown Internal Rtems Error (0x%08" PRIx32 ")", error);
     else
       printk( "%s", rtems_status_text( error ) );
   }
@@ -107,7 +107,6 @@ void Fatal_extension(
       && is_internal == FATAL_ERROR_EXPECTED_IS_INTERNAL
       && is_expected_error( error )
   ) {
-    rtems_test_endk();
+    TEST_END();
   }
 }
-

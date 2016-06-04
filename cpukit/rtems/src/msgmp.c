@@ -20,6 +20,7 @@
 
 #include <rtems/rtems/messageimpl.h>
 #include <rtems/rtems/optionsimpl.h>
+#include <rtems/rtems/statusimpl.h>
 #include <rtems/score/coremsgimpl.h>
 #include <rtems/score/statesimpl.h>
 #include <rtems/score/threadimpl.h>
@@ -28,6 +29,12 @@ RTEMS_STATIC_ASSERT(
   MESSAGE_QUEUE_MP_PACKET_SIZE <= MP_PACKET_MINIMUM_PACKET_SIZE,
   Message_queue_MP_Packet
 );
+
+static Message_queue_MP_Packet *_Message_queue_MP_Get_packet( void )
+{
+  return (Message_queue_MP_Packet *) _MPCI_Get_packet();
+}
+
 
 /*
  *  _Message_queue_MP_Send_process_packet
@@ -89,16 +96,21 @@ void _Message_queue_MP_Send_process_packet (
  *
  */
 
-rtems_status_code _Message_queue_MP_Send_request_packet (
-  Message_queue_MP_Remote_operations  operation,
+static rtems_status_code _Message_queue_MP_Send_request_packet (
   Objects_Id                          message_queue_id,
   const void                         *buffer,
   size_t                             *size_p,
   rtems_option                        option_set,
-  rtems_interval                      timeout
+  rtems_interval                      timeout,
+  Message_queue_MP_Remote_operations  operation
 )
 {
   Message_queue_MP_Packet *the_packet;
+  Status_Control           status;
+
+  if ( !_Message_queue_MP_Is_remote( message_queue_id ) ) {
+    return RTEMS_INVALID_ID;
+  }
 
   switch ( operation ) {
 
@@ -145,13 +157,12 @@ rtems_status_code _Message_queue_MP_Send_request_packet (
           );
       }
 
-      return (rtems_status_code) _MPCI_Send_request_packet(
+      status = _MPCI_Send_request_packet(
         _Objects_Get_node(message_queue_id),
         &the_packet->Prefix,
-        STATES_WAITING_FOR_MESSAGE,
-        RTEMS_TIMEOUT
+        STATES_WAITING_FOR_MESSAGE
       );
-      break;
+      return _Status_Get( status );
 
     case MESSAGE_QUEUE_MP_RECEIVE_REQUEST:
 
@@ -171,13 +182,12 @@ rtems_status_code _Message_queue_MP_Send_request_packet (
       _Thread_Executing->Wait.return_argument_second.immutable_object = buffer;
       _Thread_Executing->Wait.return_argument = size_p;
 
-      return (rtems_status_code) _MPCI_Send_request_packet(
+      status = _MPCI_Send_request_packet(
         _Objects_Get_node(message_queue_id),
         &the_packet->Prefix,
-        STATES_WAITING_FOR_MESSAGE,
-        RTEMS_TIMEOUT
+        STATES_WAITING_FOR_MESSAGE
       );
-      break;
+      return _Status_Get( status );
 
     case MESSAGE_QUEUE_MP_ANNOUNCE_CREATE:
     case MESSAGE_QUEUE_MP_ANNOUNCE_DELETE:
@@ -194,12 +204,112 @@ rtems_status_code _Message_queue_MP_Send_request_packet (
   return RTEMS_SUCCESSFUL;
 }
 
+rtems_status_code _Message_queue_MP_Broadcast(
+  rtems_id    id,
+  const void *buffer,
+  size_t      size,
+  uint32_t   *count
+)
+{
+  _Thread_Get_executing()->Wait.return_argument = count;
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    buffer,
+    &size,
+    0,
+    MPCI_DEFAULT_TIMEOUT,
+    MESSAGE_QUEUE_MP_BROADCAST_REQUEST
+  );
+}
+
+rtems_status_code _Message_queue_MP_Flush(
+  rtems_id  id,
+  uint32_t *count
+)
+{
+  _Thread_Get_executing()->Wait.return_argument = count;
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    NULL,
+    NULL,
+    0,
+    MPCI_DEFAULT_TIMEOUT,
+    MESSAGE_QUEUE_MP_FLUSH_REQUEST
+  );
+}
+
+rtems_status_code _Message_queue_MP_Get_number_pending(
+  rtems_id  id,
+  uint32_t *count
+)
+{
+  _Thread_Get_executing()->Wait.return_argument = count;
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    NULL,
+    NULL,
+    0,
+    MPCI_DEFAULT_TIMEOUT,
+    MESSAGE_QUEUE_MP_GET_NUMBER_PENDING_REQUEST
+  );
+}
+
+rtems_status_code _Message_queue_MP_Receive(
+  rtems_id        id,
+  void           *buffer,
+  size_t         *size,
+  rtems_option    option_set,
+  rtems_interval  timeout
+)
+{
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    buffer,
+    size,
+    option_set,
+    timeout,
+    MESSAGE_QUEUE_MP_RECEIVE_REQUEST
+  );
+}
+
+rtems_status_code _Message_queue_MP_Send(
+  rtems_id    id,
+  const void *buffer,
+  size_t      size
+)
+{
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    buffer,
+    &size,
+    0,
+    MPCI_DEFAULT_TIMEOUT,
+    MESSAGE_QUEUE_MP_SEND_REQUEST
+  );
+}
+
+rtems_status_code _Message_queue_MP_Urgent(
+  rtems_id    id,
+  const void *buffer,
+  size_t      size
+)
+{
+  return _Message_queue_MP_Send_request_packet(
+    id,
+    buffer,
+    &size,
+    0,
+    MPCI_DEFAULT_TIMEOUT,
+    MESSAGE_QUEUE_MP_URGENT_REQUEST
+  );
+}
+
 /*
  *  _Message_queue_MP_Send_response_packet
  *
  */
 
-void _Message_queue_MP_Send_response_packet (
+static void _Message_queue_MP_Send_response_packet (
   Message_queue_MP_Remote_operations  operation,
   Objects_Id                          message_queue_id,
   Thread_Control                     *the_thread
@@ -466,28 +576,7 @@ void _Message_queue_MP_Send_extract_proxy (
   );
 }
 
-/*
- *  _Message_queue_MP_Get_packet
- *
- */
-
-Message_queue_MP_Packet *_Message_queue_MP_Get_packet ( void )
-{
-  return ( (Message_queue_MP_Packet *) _MPCI_Get_packet() );
-}
-
-
-/*
- *  _Message_queue_Core_message_queue_mp_support
- *
- *  Input parameters:
- *    the_thread - the remote thread the message was submitted to
- *    id         - id of the message queue
- *
- *  Output parameters: NONE
- */
-
-void  _Message_queue_Core_message_queue_mp_support (
+void  _Message_queue_Core_message_queue_mp_support(
   Thread_Control *the_thread,
   Objects_Id      id
 )

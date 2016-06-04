@@ -100,7 +100,7 @@ rtems_status_code rtems_interrupt_catch(
  *  rtems_interrupt_local_disable() is available on all configurations.
  */
 #define rtems_interrupt_disable( _isr_cookie ) \
-    _ISR_Disable(_isr_cookie)
+    _ISR_Local_disable(_isr_cookie)
 
 /**
  *  @brief Enable RTEMS Interrupt
@@ -111,7 +111,7 @@ rtems_status_code rtems_interrupt_catch(
  *  rtems_interrupt_local_enable() is available on all configurations.
  */
 #define rtems_interrupt_enable( _isr_cookie ) \
-    _ISR_Enable(_isr_cookie)
+    _ISR_Local_enable(_isr_cookie)
 
 /**
  *  @brief Flash RTEMS Interrupt
@@ -123,7 +123,7 @@ rtems_status_code rtems_interrupt_catch(
  *  available on all configurations.
  */
 #define rtems_interrupt_flash( _isr_cookie ) \
-    _ISR_Flash(_isr_cookie)
+    _ISR_Local_flash(_isr_cookie)
 
 #endif /* RTEMS_SMP */
 
@@ -139,7 +139,7 @@ rtems_status_code rtems_interrupt_catch(
  * @see rtems_interrupt_local_enable().
  */
 #define rtems_interrupt_local_disable( _isr_cookie ) \
-  _ISR_Disable_without_giant( _isr_cookie )
+  _ISR_Local_disable( _isr_cookie )
 
 /**
  * @brief This macro restores the previous interrupt level on the current
@@ -149,7 +149,7 @@ rtems_status_code rtems_interrupt_catch(
  *   rtems_interrupt_local_disable().
  */
 #define rtems_interrupt_local_enable( _isr_cookie ) \
-  _ISR_Enable_without_giant( _isr_cookie )
+  _ISR_Local_enable( _isr_cookie )
 
 /**
  *  @brief RTEMS Interrupt Is in Progress
@@ -277,6 +277,19 @@ typedef ISR_lock_Context rtems_interrupt_lock_context;
  */
 #define rtems_interrupt_lock_destroy( _lock ) \
   _ISR_lock_Destroy( _lock )
+
+/**
+ * @brief Disables interrupts on the current processor.
+ *
+ * This function can be used in thread and interrupt context.
+ *
+ * @param[in,out] _lock_context The local interrupt lock context for an acquire
+ * and release pair.
+ *
+ * @see rtems_interrupt_lock_acquire_isr().
+ */
+#define rtems_interrupt_lock_interrupt_disable( _lock_context ) \
+  _ISR_lock_ISR_disable( _lock_context )
 
 /**
  * @brief Acquires an interrupt lock.

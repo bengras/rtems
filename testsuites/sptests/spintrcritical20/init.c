@@ -18,6 +18,7 @@
 
 #include <tmacros.h>
 #include <intrcritical.h>
+#include <rtems/score/threadimpl.h>
 #include <rtems/score/threadqimpl.h>
 #include <rtems/rtems/semimpl.h>
 
@@ -44,10 +45,6 @@ static void semaphore_task(rtems_task_argument arg)
   test_context *ctx = (test_context *) arg;
 
   ctx->semaphore_task_tcb = _Thread_Get_executing();
-  _Thread_Wait_set_timeout_code(
-    ctx->semaphore_task_tcb,
-    CORE_SEMAPHORE_TIMEOUT
-  );
 
   while (true) {
     rtems_status_code sc = rtems_semaphore_obtain(
@@ -71,12 +68,12 @@ static bool test_body(void *arg)
 {
   test_context *ctx = arg;
   int busy;
+  Per_CPU_Control *cpu_self;
 
-  _Thread_Disable_dispatch();
+  cpu_self = _Thread_Dispatch_disable();
 
   rtems_test_assert(
-    ctx->semaphore_task_tcb->Wait.return_code
-      == CORE_SEMAPHORE_STATUS_SUCCESSFUL
+    _Thread_Wait_get_status( ctx->semaphore_task_tcb ) == STATUS_SUCCESSFUL
   );
 
   /*
@@ -93,11 +90,11 @@ static bool test_body(void *arg)
 
   _Thread_Timeout(&ctx->semaphore_task_tcb->Timer.Watchdog);
 
-  switch (ctx->semaphore_task_tcb->Wait.return_code) {
-    case CORE_SEMAPHORE_STATUS_SUCCESSFUL:
+  switch (_Thread_Wait_get_status(ctx->semaphore_task_tcb)) {
+    case STATUS_SUCCESSFUL:
       ctx->status_was_successful = true;
       break;
-    case CORE_SEMAPHORE_TIMEOUT:
+    case STATUS_TIMEOUT:
       ctx->status_was_timeout = true;
       break;
     default:
@@ -105,7 +102,7 @@ static bool test_body(void *arg)
       break;
   }
 
-  _Thread_Enable_dispatch();
+  _Thread_Dispatch_enable(cpu_self);
 
   return ctx->thread_queue_was_null
     && ctx->status_was_successful

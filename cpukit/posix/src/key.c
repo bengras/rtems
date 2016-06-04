@@ -111,8 +111,18 @@ static void _POSIX_Keys_Run_destructors( Thread_Control *the_thread )
   }
 }
 
+static void _POSIX_Keys_Restart_run_destructors(
+  Thread_Control *executing,
+  Thread_Control *the_thread
+)
+{
+  (void) executing;
+  _POSIX_Keys_Run_destructors( the_thread );
+}
+
 static User_extensions_Control _POSIX_Keys_Extensions = {
   .Callouts = {
+    .thread_restart = _POSIX_Keys_Restart_run_destructors,
     .thread_terminate = _POSIX_Keys_Run_destructors
   }
 };
@@ -131,12 +141,8 @@ static void _POSIX_Keys_Manager_initialization(void)
     sizeof( POSIX_Keys_Control ),
                                 /* size of this object's control block */
     true,                       /* true if names for this object are strings */
-    _POSIX_PATH_MAX             /* maximum length of each object's name */
-#if defined(RTEMS_MULTIPROCESSING)
-    ,
-    false,                      /* true if this is a global object class */
+    _POSIX_PATH_MAX,            /* maximum length of each object's name */
     NULL                        /* Proxy extraction support callout */
-#endif
   );
 
   _POSIX_Keys_Initialize_keypool();

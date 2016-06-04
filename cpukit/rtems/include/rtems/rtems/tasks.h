@@ -38,6 +38,7 @@
 #define _RTEMS_RTEMS_TASKS_H
 
 #include <rtems/score/object.h>
+#include <rtems/score/scheduler.h>
 #include <rtems/score/thread.h>
 #include <rtems/rtems/types.h>
 #include <rtems/rtems/event.h>
@@ -371,52 +372,6 @@ rtems_status_code rtems_task_wake_after(
 rtems_status_code rtems_task_is_suspended(
   rtems_id   id
 );
-
-#if !defined(RTEMS_SMP)
-/**
- *  @brief RTEMS Add Task Variable
- *
- *  @deprecated Task variables are deprecated.
- *
- *  This directive adds a per task variable.
- *
- *  @note This service is not available in SMP configurations.
- */
-rtems_status_code rtems_task_variable_add(
-  rtems_id  tid,
-  void    **ptr,
-  void    (*dtor)(void *)
-) RTEMS_DEPRECATED;
-
-/**
- *  @brief Get a per-task variable
- *
- *  @deprecated Task variables are deprecated.
- *
- *  This directive gets the value of a task variable.
- *
- *  @note This service is not available in SMP configurations.
- */
-rtems_status_code rtems_task_variable_get(
-  rtems_id tid,
-  void **ptr,
-  void **result
-) RTEMS_DEPRECATED;
-
-/**
- *  @brief RTEMS Delete Task Variable
- *
- *  @deprecated Task variables are deprecated.
- *
- *  This directive removes a per task variable.
- *
- *  @note This service is not available in SMP configurations.
- */
-rtems_status_code rtems_task_variable_delete(
-  rtems_id  tid,
-  void    **ptr
-) RTEMS_DEPRECATED;
-#endif
 
 #if defined(__RTEMS_HAVE_SYS_CPUSET_H__)
 /**

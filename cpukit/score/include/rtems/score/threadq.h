@@ -58,6 +58,42 @@ typedef void ( *Thread_queue_MP_callout )(
 #endif
 
 /**
+ * @brief Thread queue context for the thread queue methods.
+ *
+ * @see _Thread_queue_Context_initialize().
+ */
+typedef struct {
+  /**
+   * @brief The lock context for the thread queue acquire and release
+   * operations.
+   */
+  ISR_lock_Context Lock_context;
+
+  /**
+   * @brief The expected thread dispatch disable level for
+   * _Thread_queue_Enqueue_critical().
+   *
+   * In case the actual thread dispatch disable level is not equal to the
+   * expected level, then a fatal error occurs.
+   */
+  uint32_t expected_thread_dispatch_disable_level;
+
+  /**
+   * @brief Callout to unblock the thread in case it is actually a thread
+   * proxy.
+   *
+   * This field is only used on multiprocessing configurations.  Used by
+   * thread queue extract and unblock methods for objects with multiprocessing
+   * (MP) support.
+   *
+   * @see _Thread_queue_Context_set_MP_callout().
+   */
+#if defined(RTEMS_MULTIPROCESSING)
+  Thread_queue_MP_callout mp_callout;
+#endif
+} Thread_queue_Context;
+
+/**
  * @brief Thread priority queue.
  */
 typedef struct {
@@ -143,6 +179,22 @@ typedef struct _Thread_queue_Heads {
 
 typedef struct {
   /**
+   * @brief Lock to protect this thread queue.
+   *
+   * It may be used to protect additional state of the object embedding this
+   * thread queue.
+   *
+   * Must be the first component of this structure to be able to re-use
+   * implementation parts for structures defined by Newlib <sys/lock.h>.
+   *
+   * @see _Thread_queue_Acquire(), _Thread_queue_Acquire_critical() and
+   * _Thread_queue_Release().
+   */
+#if defined(RTEMS_SMP)
+  SMP_ticket_lock_Control Lock;
+#endif
+
+  /**
    * @brief The thread queue heads.
    *
    * This pointer is NULL, if and only if no threads are enqueued.  The first
@@ -152,17 +204,9 @@ typedef struct {
   Thread_queue_Heads *heads;
 
   /**
-   * @brief Lock to protect this thread queue.
-   *
-   * It may be used to protect additional state of the object embedding this
-   * thread queue.
-   *
-   * @see _Thread_queue_Acquire(), _Thread_queue_Acquire_critical() and
-   * _Thread_queue_Release().
+   * @brief The thread queue owner.
    */
-#if defined(RTEMS_SMP)
-  SMP_ticket_lock_Control Lock;
-#endif
+  Thread_Control *owner;
 } Thread_queue_Queue;
 
 /**
@@ -264,14 +308,37 @@ typedef struct {
  *  waiting to acquire a resource.
  */
 typedef struct {
+#if defined(RTEMS_SMP)
+#if defined(RTEMS_DEBUG)
+  /**
+   * @brief The index of the owning processor of the thread queue lock.
+   *
+   * The thread queue lock may be acquired via the thread lock also.  This path
+   * is not covered by this field.  In case the lock is not owned directly via
+   * _Thread_queue_Acquire(), then the value of this field is
+   * SMP_LOCK_NO_OWNER.
+   *
+   * Must be before the queue component of this structure to be able to re-use
+   * implementation parts for structures defined by Newlib <sys/lock.h>.
+   */
+  uint32_t owner;
+#endif
+
+#if defined(RTEMS_PROFILING)
+  /**
+   * @brief SMP lock statistics in case SMP and profiling are enabled.
+   *
+   * Must be before the queue component of this structure to be able to re-use
+   * implementation parts for structures defined by Newlib <sys/lock.h>.
+   */
+  SMP_lock_Stats Lock_stats;
+#endif
+#endif
+
   /**
    * @brief The actual thread queue.
    */
   Thread_queue_Queue Queue;
-
-#if defined(RTEMS_SMP) && defined(RTEMS_PROFILING)
-  SMP_lock_Stats Lock_stats;
-#endif
 } Thread_queue_Control;
 
 /**@}*/

@@ -203,7 +203,7 @@ typedef struct {
     )
 #else
   #define _ISR_lock_ISR_disable_and_acquire( _lock, _context ) \
-    _ISR_Disable( ( _context )->isr_level )
+    _ISR_Local_disable( ( _context )->isr_level )
 #endif
 
 /**
@@ -228,7 +228,7 @@ typedef struct {
     )
 #else
   #define _ISR_lock_Release_and_ISR_enable( _lock, _context ) \
-    _ISR_Enable( ( _context )->isr_level )
+    _ISR_Local_enable( ( _context )->isr_level )
 #endif
 
 /**
@@ -281,10 +281,29 @@ typedef struct {
     (void) _context;
 #endif
 
+#if defined( RTEMS_DEBUG )
+  /**
+   * @brief Returns true, if the ISR lock is owned by the current processor,
+   * otherwise false.
+   *
+   * On uni-processor configurations, this function returns true, if interrupts
+   * are disabled, otherwise false.
+   *
+   * @param[in] _lock The ISR lock control.
+   */
+  #if defined( RTEMS_SMP )
+    #define _ISR_lock_Is_owner( _lock ) \
+      _SMP_lock_Is_owner( &( _lock )->Lock )
+  #else
+    #define _ISR_lock_Is_owner( _lock ) \
+      ( _ISR_Get_level() != 0 )
+  #endif
+#endif
+
 /**
  * @brief Flashes an ISR lock.
  *
- * On uni-processor configurations this a simple _ISR_Flash().  On SMP
+ * On uni-processor configurations this a simple _ISR_Local_flash().  On SMP
  * configurations this function releases an SMP lock, restores the interrupt
  * status, then disables interrupts and acquires the SMP lock again.
  *
@@ -309,7 +328,7 @@ typedef struct {
     )
 #else
   #define _ISR_lock_Flash( _lock, _context ) \
-    _ISR_Flash( ( _context )->isr_level )
+    _ISR_Local_flash( ( _context )->isr_level )
 #endif
 
 #if defined( RTEMS_PROFILING )
@@ -332,13 +351,13 @@ typedef struct {
 #if defined( RTEMS_SMP )
   #define _ISR_lock_ISR_disable( _context ) \
     do { \
-      _ISR_Disable_without_giant( ( _context )->Lock_context.isr_level ); \
+      _ISR_Local_disable( ( _context )->Lock_context.isr_level ); \
       _ISR_lock_ISR_disable_profile( _context ) \
     } while ( 0 )
 #else
   #define _ISR_lock_ISR_disable( _context ) \
     do { \
-      _ISR_Disable( ( _context )->isr_level ); \
+      _ISR_Local_disable( ( _context )->isr_level ); \
       _ISR_lock_ISR_disable_profile( _context ) \
     } while ( 0 )
 #endif
@@ -355,10 +374,10 @@ typedef struct {
  */
 #if defined( RTEMS_SMP )
   #define _ISR_lock_ISR_enable( _context ) \
-    _ISR_Enable_without_giant( ( _context )->Lock_context.isr_level )
+    _ISR_Local_enable( ( _context )->Lock_context.isr_level )
 #else
   #define _ISR_lock_ISR_enable( _context ) \
-    _ISR_Enable( ( _context )->isr_level )
+    _ISR_Local_enable( ( _context )->isr_level )
 #endif
 
 /** @} */

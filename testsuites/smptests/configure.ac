@@ -57,6 +57,7 @@ AM_CONDITIONAL(HAS_CPUSET,test x"${ac_cv_header_sys_cpuset_h}" = x"yes")
 
 # Explicitly list all Makefiles here
 AC_CONFIG_FILES([Makefile
+smpstrongapa01/Makefile
 smp01/Makefile
 smp02/Makefile
 smp03/Makefile
@@ -72,7 +73,6 @@ smpcapture02/Makefile
 smpclock01/Makefile
 smpfatal01/Makefile
 smpfatal02/Makefile
-smpfatal03/Makefile
 smpfatal04/Makefile
 smpfatal05/Makefile
 smpfatal08/Makefile

@@ -19,19 +19,65 @@
 #include "config.h"
 #endif
 
-#include <rtems/system.h>
 #include <rtems/score/corerwlockimpl.h>
-#include <rtems/score/threadqimpl.h>
-#include <rtems/score/watchdog.h>
+#include <rtems/score/assert.h>
 
-CORE_RWLock_Status _CORE_RWLock_Release(
-  CORE_RWLock_Control *the_rwlock,
-  Thread_Control      *executing
+static bool _CORE_RWLock_Is_waiting_for_reading(
+  const Thread_Control *the_thread
 )
 {
-  ISR_Level       level;
-  Thread_Control *next;
+  if ( the_thread->Wait.option == CORE_RWLOCK_THREAD_WAITING_FOR_READ ) {
+    return true;
+  } else {
+    _Assert( the_thread->Wait.option == CORE_RWLOCK_THREAD_WAITING_FOR_WRITE );
+    return false;
+  }
+}
 
+static Thread_Control *_CORE_RWLock_Flush_filter(
+  Thread_Control       *the_thread,
+  Thread_queue_Queue   *queue,
+  Thread_queue_Context *queue_context
+)
+{
+  CORE_RWLock_Control *the_rwlock;
+
+  the_rwlock = RTEMS_CONTAINER_OF(
+    queue,
+    CORE_RWLock_Control,
+    Wait_queue.Queue
+  );
+
+  switch ( the_rwlock->current_state ) {
+    case CORE_RWLOCK_LOCKED_FOR_READING:
+      if ( _CORE_RWLock_Is_waiting_for_reading( the_thread ) ) {
+        the_rwlock->number_of_readers += 1;
+      } else {
+        the_thread = NULL;
+      }
+      break;
+    case CORE_RWLOCK_LOCKED_FOR_WRITING:
+      the_thread = NULL;
+      break;
+    default:
+      _Assert( the_rwlock->current_state == CORE_RWLOCK_UNLOCKED );
+      if ( _CORE_RWLock_Is_waiting_for_reading( the_thread ) ) {
+        the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_READING;
+        the_rwlock->number_of_readers = 1;
+      } else {
+        the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_WRITING;
+      }
+      break;
+  }
+
+  return the_thread;
+}
+
+Status_Control _CORE_RWLock_Surrender(
+  CORE_RWLock_Control  *the_rwlock,
+  Thread_queue_Context *queue_context
+)
+{
   /*
    *  If unlocked, then OK to read.
    *  Otherwise, we have to block.
@@ -39,67 +85,41 @@ CORE_RWLock_Status _CORE_RWLock_Release(
    *  If any thread is waiting, then we wait.
    */
 
-  _ISR_Disable( level );
-    if ( the_rwlock->current_state == CORE_RWLOCK_UNLOCKED){
-      _ISR_Enable( level );
-      executing->Wait.return_code = CORE_RWLOCK_UNAVAILABLE;
-      return CORE_RWLOCK_SUCCESSFUL;
-    }
-    if ( the_rwlock->current_state == CORE_RWLOCK_LOCKED_FOR_READING ) {
-	the_rwlock->number_of_readers -= 1;
-	if ( the_rwlock->number_of_readers != 0 ) {
-          /* must be unlocked again */
-	  _ISR_Enable( level );
-          return CORE_RWLOCK_SUCCESSFUL;
-        }
-    }
+  _CORE_RWLock_Acquire_critical( the_rwlock, queue_context );
 
-    /* CORE_RWLOCK_LOCKED_FOR_WRITING or READING with readers */
-    executing->Wait.return_code = CORE_RWLOCK_SUCCESSFUL;
+  if ( the_rwlock->current_state == CORE_RWLOCK_UNLOCKED){
+    /* This is an error at the caller site */
+    _CORE_RWLock_Release( the_rwlock, queue_context );
+    return STATUS_SUCCESSFUL;
+  }
 
-    /*
-     * Implicitly transition to "unlocked" and find another thread interested
-     * in obtaining this rwlock.
-     */
-    the_rwlock->current_state = CORE_RWLOCK_UNLOCKED;
-  _ISR_Enable( level );
+  if ( the_rwlock->current_state == CORE_RWLOCK_LOCKED_FOR_READING ) {
+    the_rwlock->number_of_readers -= 1;
 
-  next = _Thread_queue_Dequeue(
-    &the_rwlock->Wait_queue,
-    CORE_RWLOCK_TQ_OPERATIONS,
-    NULL,
-    0
-  );
-
-  if ( next ) {
-    if ( next->Wait.option == CORE_RWLOCK_THREAD_WAITING_FOR_WRITE ) {
-      the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_WRITING;
-      return CORE_RWLOCK_SUCCESSFUL;
-    }
-
-    /*
-     * Must be CORE_RWLOCK_THREAD_WAITING_FOR_READING
-     */
-    the_rwlock->number_of_readers += 1;
-    the_rwlock->current_state = CORE_RWLOCK_LOCKED_FOR_READING;
-
-    /*
-     * Now see if more readers can be let go.
-     */
-    while ( 1 ) {
-      next = _Thread_queue_First(
-        &the_rwlock->Wait_queue,
-        CORE_RWLOCK_TQ_OPERATIONS
-      );
-      if ( !next ||
-           next->Wait.option == CORE_RWLOCK_THREAD_WAITING_FOR_WRITE )
-        return CORE_RWLOCK_SUCCESSFUL;
-      the_rwlock->number_of_readers += 1;
-      _Thread_queue_Extract( next );
+    if ( the_rwlock->number_of_readers != 0 ) {
+      /* must be unlocked again */
+      _CORE_RWLock_Release( the_rwlock, queue_context );
+      return STATUS_SUCCESSFUL;
     }
   }
 
-  /* indentation is to match _ISR_Disable at top */
+  _Assert(
+    the_rwlock->current_state == CORE_RWLOCK_LOCKED_FOR_WRITING
+      || ( the_rwlock->current_state == CORE_RWLOCK_LOCKED_FOR_READING
+        && the_rwlock->number_of_readers == 0 )
+  );
 
-  return CORE_RWLOCK_SUCCESSFUL;
+  /*
+   * Implicitly transition to "unlocked" and find another thread interested
+   * in obtaining this rwlock.
+   */
+  the_rwlock->current_state = CORE_RWLOCK_UNLOCKED;
+
+  _Thread_queue_Flush_critical(
+    &the_rwlock->Wait_queue.Queue,
+    CORE_RWLOCK_TQ_OPERATIONS,
+    _CORE_RWLock_Flush_filter,
+    queue_context
+  );
+  return STATUS_SUCCESSFUL;
 }

@@ -33,14 +33,12 @@ static test_context ctx_instance;
 
 static Semaphore_Control *get_semaphore_control(rtems_id id)
 {
-  Objects_Locations location;
+  Thread_queue_Context queue_context;
   Semaphore_Control *sem;
 
-  sem = (Semaphore_Control *)
-    _Objects_Get(&_Semaphore_Information, id, &location);
-  _Thread_Unnest_dispatch();
-
-  rtems_test_assert(sem != NULL && location == OBJECTS_LOCAL);
+  sem = _Semaphore_Get(id, &queue_context);
+  rtems_test_assert(sem != NULL);
+  _ISR_lock_ISR_enable(&queue_context.Lock_context);
 
   return sem;
 }
@@ -50,12 +48,13 @@ static void release_semaphore(rtems_id timer, void *arg)
   /* The arg is NULL */
   test_context *ctx = &ctx_instance;
   rtems_status_code sc;
-  CORE_mutex_Control *mtx = &ctx->semaphore_control->Core_control.mutex;
 
   if (
     _Thread_Wait_flags_get(ctx->main_task_control)
       == (THREAD_WAIT_CLASS_OBJECT | THREAD_WAIT_STATE_INTEND_TO_BLOCK)
   ) {
+    CORE_semaphore_Control *sem;
+
     ctx->done = true;
 
     sc = rtems_semaphore_release(ctx->semaphore_id);
@@ -65,8 +64,8 @@ static void release_semaphore(rtems_id timer, void *arg)
       _Thread_Wait_flags_get(ctx->main_task_control)
         == (THREAD_WAIT_CLASS_OBJECT | THREAD_WAIT_STATE_READY_AGAIN)
     );
-    rtems_test_assert(mtx->nest_count == 1);
-    rtems_test_assert(mtx->holder == ctx->main_task_control);
+    sem = &ctx->semaphore_control->Core_control.Semaphore;
+    rtems_test_assert(sem->count == 0);
   } else {
     sc = rtems_semaphore_release(ctx->semaphore_id);
     rtems_test_assert(sc == RTEMS_SUCCESSFUL);

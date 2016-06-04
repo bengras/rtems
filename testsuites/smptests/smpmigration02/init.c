@@ -118,12 +118,12 @@ static void busy_loop_task(rtems_task_argument arg)
 
 static Thread_Control *get_thread_by_id(rtems_id task_id)
 {
-  Objects_Locations location;
+  ISR_lock_Context lock_context;
   Thread_Control *thread;
 
-  thread = _Thread_Get(task_id, &location);
-  rtems_test_assert(location == OBJECTS_LOCAL);
-  _Thread_Enable_dispatch();
+  thread = _Thread_Get(task_id, &lock_context);
+  rtems_test_assert(thread != NULL);
+  _ISR_lock_ISR_enable(&lock_context);
 
   return thread;
 }
@@ -140,6 +140,7 @@ static void test_double_migration(test_context *ctx)
     uint32_t cpu_other_index = 1;
     Per_CPU_Control *cpu_self = _Per_CPU_Get_by_index(cpu_self_index);
     Per_CPU_Control *cpu_other = _Per_CPU_Get_by_index(cpu_other_index);
+    Per_CPU_Control *cpu_self_dispatch_disabled;
     Thread_Control *self;
     Thread_Control *other;
 
@@ -173,7 +174,8 @@ static void test_double_migration(test_context *ctx)
       /* Wait */
     }
 
-    _Thread_Disable_dispatch();
+    cpu_self_dispatch_disabled = _Thread_Dispatch_disable();
+    rtems_test_assert(cpu_self == cpu_self_dispatch_disabled);
 
     self = _Thread_Executing;
 
@@ -215,7 +217,7 @@ static void test_double_migration(test_context *ctx)
 
     rtems_test_assert(cpu_other->heir == other);
 
-    _Thread_Enable_dispatch();
+    _Thread_Dispatch_enable(cpu_self_dispatch_disabled);
 
     while (!_Thread_Is_executing_on_a_processor(other)) {
       /* Wait */

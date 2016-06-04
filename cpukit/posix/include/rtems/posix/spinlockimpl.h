@@ -37,20 +37,6 @@ extern "C" {
 extern Objects_Information _POSIX_Spinlock_Information;
 
 /**
- * @brief Translate core spinlock status code.
- *
- * This routine translates SuperCore Spinlock status codes into the
- * corresponding POSIX ones.
- * 
- * @param[in] the_spinlock_status is the SuperCore status.
- *
- * @return the corresponding POSIX status
- */
-int _POSIX_Spinlock_Translate_core_spinlock_return_code(
-  CORE_spinlock_Status  the_spinlock_status
-);
-
-/**
  * @brief Allocate a spinlock control block.
  *
  * This function allocates a spinlock control block from
@@ -84,10 +70,10 @@ RTEMS_INLINE_ROUTINE POSIX_Spinlock_Control *_POSIX_Spinlock_Get(
     return NULL;
   }
 
-  return (POSIX_Spinlock_Control *) _Objects_Get_local(
-    &_POSIX_Spinlock_Information,
+  return (POSIX_Spinlock_Control *) _Objects_Get(
     *spinlock,
-    lock_context
+    lock_context,
+    &_POSIX_Spinlock_Information
   );
 }
 

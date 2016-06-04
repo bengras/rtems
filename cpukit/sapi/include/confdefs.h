@@ -771,6 +771,7 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
  *  - CONFIGURE_SCHEDULER_PRIORITY_SMP - Deterministic Priority SMP Scheduler
  *  - CONFIGURE_SCHEDULER_PRIORITY_AFFINITY_SMP - Deterministic
  *    Priority SMP Affinity Scheduler
+ *  - CONFIGURE_SCHEDULER_STRONG_APA - Strong APA Scheduler
  *  - CONFIGURE_SCHEDULER_SIMPLE - Light-weight Priority Scheduler
  *  - CONFIGURE_SCHEDULER_SIMPLE_SMP - Simple SMP Priority Scheduler
  *  - CONFIGURE_SCHEDULER_EDF - EDF Scheduler
@@ -795,6 +796,7 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
     !defined(CONFIGURE_SCHEDULER_PRIORITY) && \
     !defined(CONFIGURE_SCHEDULER_PRIORITY_SMP) && \
     !defined(CONFIGURE_SCHEDULER_PRIORITY_AFFINITY_SMP) && \
+    !defined(CONFIGURE_SCHEDULER_STRONG_APA) && \
     !defined(CONFIGURE_SCHEDULER_SIMPLE) && \
     !defined(CONFIGURE_SCHEDULER_SIMPLE_SMP) && \
     !defined(CONFIGURE_SCHEDULER_EDF) && \
@@ -881,11 +883,36 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
         CONFIGURE_MAXIMUM_PRIORITY + 1 \
       )
 
+    /** Configure the controls for this scheduler instance */
     #define CONFIGURE_SCHEDULER_CONTROLS \
       RTEMS_SCHEDULER_CONTROL_PRIORITY_AFFINITY_SMP( \
         dflt, \
         CONFIGURE_SCHEDULER_NAME \
       )
+  #endif
+#endif
+
+/*
+ * If the Strong APA Scheduler is selected, then configure for
+ * it.
+ */
+#if defined(CONFIGURE_SCHEDULER_STRONG_APA)
+  #if !defined(CONFIGURE_SCHEDULER_NAME)
+    /** Configure the name of the scheduler instance */
+    #define CONFIGURE_SCHEDULER_NAME rtems_build_name('M', 'A', 'P', 'A')
+  #endif
+
+  #if !defined(CONFIGURE_SCHEDULER_CONTROLS)
+    /** Configure the context needed by the scheduler instance */
+    #define CONFIGURE_SCHEDULER_CONTEXT \
+      RTEMS_SCHEDULER_CONTEXT_STRONG_APA( \
+        dflt, \
+        CONFIGURE_MAXIMUM_PRIORITY + 1 \
+      )
+
+    /** Configure the controls for this scheduler instance */
+    #define CONFIGURE_SCHEDULER_CONTROLS \
+      RTEMS_SCHEDULER_CONTROL_STRONG_APA(dflt, CONFIGURE_SCHEDULER_NAME)
   #endif
 #endif
 
@@ -1342,10 +1369,13 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
 #define _Configure_Zero_or_One(_number) ((_number) ? 1 : 0)
 
 /**
- * General helper to aligned a value up to a power of two boundary.
+ * General helper to align up a value.
  */
 #define _Configure_Align_up(_val, _align) \
-  (((_val) + (_align) - 1) & ~((_align) - 1))
+  (((_val) + (_align) - 1) - ((_val) + (_align) - 1) % (_align))
+
+#define CONFIGURE_HEAP_MIN_BLOCK_SIZE \
+  _Configure_Align_up(sizeof(Heap_Block), CPU_HEAP_ALIGNMENT)
 
 /**
  * This is a helper macro used in calculations in this file.  It is used
@@ -1354,8 +1384,9 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
  * may be applied.
  */
 #define _Configure_From_workspace(_size) \
-   (ssize_t) (_Configure_Zero_or_One(_size) * \
-     _Configure_Align_up((_size) + HEAP_BLOCK_HEADER_SIZE, CPU_HEAP_ALIGNMENT))
+  (ssize_t) (_Configure_Zero_or_One(_size) * \
+    _Configure_Align_up(_size + HEAP_BLOCK_HEADER_SIZE, \
+      CONFIGURE_HEAP_MIN_BLOCK_SIZE))
 
 /**
  * This is a helper macro used in stack space calculations in this file.  It
@@ -2029,10 +2060,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
       #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES \
         rtems_resource_unlimited(CONFIGURE_UNLIMITED_ALLOCATION_SIZE)
     #endif
-    #if !defined(CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS)
-      #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS \
-        rtems_resource_unlimited(CONFIGURE_UNLIMITED_ALLOCATION_SIZE)
-    #endif
     #if !defined(CONFIGURE_MAXIMUM_POSIX_SEMAPHORES)
       #define CONFIGURE_MAXIMUM_POSIX_SEMAPHORES \
         rtems_resource_unlimited(CONFIGURE_UNLIMITED_ALLOCATION_SIZE)
@@ -2077,42 +2104,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
    */
   #define CONFIGURE_TASKS \
     (CONFIGURE_MAXIMUM_TASKS + CONFIGURE_LIBBLOCK_TASKS)
-
-  /**
-   * This macro calculates the memory required for task variables.
-   *
-   * @deprecated Task variables are deprecated.
-   *
-   * Each task variable is individually allocated from the Workspace.
-   * Hence, we do the multiplication on the configured size.
-   *
-   * @note Per-task variables are disabled for SMP configurations.
-   */
-  #if defined(RTEMS_SMP)
-    #ifdef CONFIGURE_MAXIMUM_TASK_VARIABLES
-      #warning "Per-Task Variables are deprecated and will be removed."
-      #error "Per-Task Variables are not safe for SMP systems and disabled."
-    #endif
-    #define CONFIGURE_MAXIMUM_TASK_VARIABLES                     0
-    #define CONFIGURE_MEMORY_FOR_TASK_VARIABLES(_task_variables) 0
-  #else
-    #ifndef CONFIGURE_MAXIMUM_TASK_VARIABLES
-      /** This macro specifies the maximum number of task variables. */
-      #define CONFIGURE_MAXIMUM_TASK_VARIABLES                     0
-      /**
-       * This macro is calculated to specify the memory required for task
-       * variables.
-       *
-       * This is an internal parameter.
-       */
-      #define CONFIGURE_MEMORY_FOR_TASK_VARIABLES(_task_variables) 0
-    #else
-      #warning "Per-Task Variables are deprecated and will be removed."
-      #define CONFIGURE_MEMORY_FOR_TASK_VARIABLES(_task_variables) \
-	(_task_variables) * \
-	   _Configure_From_workspace(sizeof(rtems_task_variable_t))
-    #endif
-  #endif
 
   #ifndef CONFIGURE_MAXIMUM_TIMERS
     /** This specifies the maximum number of Classic API timers. */
@@ -2492,8 +2483,9 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
    * This is an internal macro.
    */
   #define _Configure_POSIX_Named_Object_RAM(_number, _size) \
-    _Configure_Object_RAM( (_number), _size ) + \
-    (_Configure_Max_Objects(_number) * _Configure_From_workspace(NAME_MAX) )
+    (_Configure_Object_RAM(_number, _size) \
+      + _Configure_Max_Objects(_number) \
+        * _Configure_From_workspace(_POSIX_PATH_MAX + 1))
 
   /**
    * This configuration parameter specifies the maximum number of
@@ -2582,17 +2574,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
   #endif
 
   /**
-   * This configuration parameter specifies the maximum number of
-   * POSIX API messages queue descriptors.
-   *
-   * This defaults to the number of POSIX API message queues.
-   */
-  #ifndef CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS
-     #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS \
-             CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES
-  #endif
-
-  /**
    * This macro is calculated to specify the memory required for
    * POSIX API message queues.
    *
@@ -2601,16 +2582,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
   #define CONFIGURE_MEMORY_FOR_POSIX_MESSAGE_QUEUES(_message_queues) \
     _Configure_POSIX_Named_Object_RAM( \
        _message_queues, sizeof(POSIX_Message_queue_Control) )
-
-  /**
-   * This macro is calculated to specify the memory required for
-   * POSIX API message queue descriptors.
-   *
-   * This is an internal parameter.
-   */
-  #define CONFIGURE_MEMORY_FOR_POSIX_MESSAGE_QUEUE_DESCRIPTORS(_mqueue_fds) \
-    _Configure_Object_RAM( \
-       _mqueue_fds, sizeof(POSIX_Message_queue_Control_fd) )
 
   /**
    * This configuration parameter specifies the maximum number of
@@ -2816,9 +2787,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
     #define CONFIGURE_MAXIMUM_GOROUTINES 400
   #endif
 
-  #define CONFIGURE_GOROUTINES_TASK_VARIABLES \
-    (2 * CONFIGURE_MAXIMUM_GOROUTINES)
-
   #ifndef CONFIGURE_MAXIMUM_GO_CHANNELS
     #define CONFIGURE_MAXIMUM_GO_CHANNELS 500
   #endif
@@ -2842,9 +2810,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
 
   /** This specifies the maximum number of Go co-routines. */
   #define CONFIGURE_MAXIMUM_GOROUTINES          0
-
-  /** This specifies the maximum number of Go per-task variables required. */
-  #define CONFIGURE_GOROUTINES_TASK_VARIABLES   0
 
   /** This specifies the maximum number of Go channels required. */
   #define CONFIGURE_MAXIMUM_GO_CHANNELS         0
@@ -2907,8 +2872,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
         CONFIGURE_MAXIMUM_POSIX_QUEUED_SIGNALS) + \
       CONFIGURE_MEMORY_FOR_POSIX_MESSAGE_QUEUES( \
         CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES) + \
-      CONFIGURE_MEMORY_FOR_POSIX_MESSAGE_QUEUE_DESCRIPTORS( \
-        CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS) + \
       CONFIGURE_MEMORY_FOR_POSIX_SEMAPHORES( \
         CONFIGURE_MAXIMUM_POSIX_SEMAPHORES) + \
       CONFIGURE_MEMORY_FOR_POSIX_BARRIERS(CONFIGURE_MAXIMUM_POSIX_BARRIERS) + \
@@ -2978,7 +2941,8 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
  */
 #define CONFIGURE_MESSAGE_BUFFERS_FOR_QUEUE(_messages, _size) \
     _Configure_From_workspace( \
-      (_messages) * ((_size) + sizeof(CORE_message_queue_Buffer_control)))
+      (_messages) * (_Configure_Align_up(_size, sizeof(uintptr_t)) \
+        + sizeof(CORE_message_queue_Buffer_control)))
 
 /**
  * This macro is set to the amount of memory required for pending message
@@ -3067,9 +3031,7 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
  * Classic API as configured.
  */
 #define CONFIGURE_MEMORY_FOR_CLASSIC \
-  (CONFIGURE_MEMORY_FOR_TASK_VARIABLES(CONFIGURE_MAXIMUM_TASK_VARIABLES + \
-    CONFIGURE_GOROUTINES_TASK_VARIABLES) + \
-   CONFIGURE_MEMORY_FOR_TIMERS(CONFIGURE_MAXIMUM_TIMERS + \
+   (CONFIGURE_MEMORY_FOR_TIMERS(CONFIGURE_MAXIMUM_TIMERS + \
     CONFIGURE_TIMER_FOR_SHARED_MEMORY_DRIVER ) + \
    CONFIGURE_MEMORY_FOR_SEMAPHORES(CONFIGURE_SEMAPHORES) + \
    CONFIGURE_MEMORY_FOR_MESSAGE_QUEUES(CONFIGURE_MAXIMUM_MESSAGE_QUEUES) + \
@@ -3291,6 +3253,9 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
       #ifdef CONFIGURE_SCHEDULER_PRIORITY_AFFINITY_SMP
         Scheduler_priority_affinity_SMP_Node Priority_affinity_SMP;
       #endif
+      #ifdef CONFIGURE_SCHEDULER_STRONG_APA
+        Scheduler_strong_APA_Node Strong_APA;
+      #endif
       #ifdef CONFIGURE_SCHEDULER_USER_PER_THREAD
         CONFIGURE_SCHEDULER_USER_PER_THREAD User;
       #endif
@@ -3369,7 +3334,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
       CONFIGURE_MAXIMUM_POSIX_TIMERS,
       CONFIGURE_MAXIMUM_POSIX_QUEUED_SIGNALS,
       CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES,
-      CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS,
       CONFIGURE_MAXIMUM_POSIX_SEMAPHORES,
       CONFIGURE_MAXIMUM_POSIX_BARRIERS,
       CONFIGURE_MAXIMUM_POSIX_RWLOCKS,
@@ -3389,18 +3353,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
    */
   uint32_t rtems_minimum_stack_size =
     CONFIGURE_MINIMUM_TASK_STACK_SIZE;
-
-  /**
-   * This variable specifies the maximum priority value that
-   * a task may have.  This must be a power of 2 between 4
-   * and 256 and is specified in terms of Classic API
-   * priority values.
-   *
-   * NOTE: This is left as a simple uint8_t so it can be externed as
-   *       needed without requring being high enough logical to
-   *       include the full configuration table.
-   */
-  uint8_t rtems_maximum_priority = CONFIGURE_MAXIMUM_PRIORITY;
 
   /**
    * This is the primary Configuration Table for this application.
@@ -3578,7 +3530,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
 
     /* Classic API Pieces */
     uint32_t CLASSIC_TASKS;
-    uint32_t TASK_VARIABLES;
     uint32_t TIMERS;
     uint32_t SEMAPHORES;
     uint32_t MESSAGE_QUEUES;
@@ -3632,8 +3583,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
 
     /* Classic API Pieces */
     CONFIGURE_MEMORY_FOR_TASKS(CONFIGURE_MAXIMUM_TASKS, 0),
-    CONFIGURE_MEMORY_FOR_TASK_VARIABLES(CONFIGURE_MAXIMUM_TASK_VARIABLES +
-      CONFIGURE_GOROUTINES_TASK_VARIABLES),
     CONFIGURE_MEMORY_FOR_TIMERS(CONFIGURE_MAXIMUM_TIMERS),
     CONFIGURE_MEMORY_FOR_SEMAPHORES(CONFIGURE_SEMAPHORES),
     CONFIGURE_MEMORY_FOR_MESSAGE_QUEUES(CONFIGURE_MAXIMUM_MESSAGE_QUEUES),
@@ -3727,7 +3676,6 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
        (CONFIGURE_MAXIMUM_POSIX_TIMERS != 0) || \
        (CONFIGURE_MAXIMUM_POSIX_QUEUED_SIGNALS != 0) || \
        (CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES != 0) || \
-       (CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS != 0) || \
        (CONFIGURE_MAXIMUM_POSIX_SEMAPHORES != 0) || \
        (CONFIGURE_MAXIMUM_POSIX_BARRIERS != 0) || \
        (CONFIGURE_MAXIMUM_POSIX_SPINLOCKS != 0) || \
@@ -3795,14 +3743,8 @@ extern rtems_initialization_tasks_table Initialization_tasks[];
   #error "Maximum priority configured higher than supported by target."
 #endif
 
-/*
- *  If you have fewer POSIX Message Queue Descriptors than actual
- *  POSIX Message Queues, then you will not be able to open all the
- *  queues.
- */
-#if (CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS < \
-     CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES)
-  #error "Fewer POSIX Message Queue descriptors than Queues!"
+#ifdef CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS
+  #warning "The CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTOR configuration option is obsolete!"
 #endif
 
 /*

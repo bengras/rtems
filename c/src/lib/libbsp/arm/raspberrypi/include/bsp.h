@@ -7,6 +7,7 @@
  */
 
 /*
+ * Copyright (c) 2015 Yang Qiao
  * Copyright (c) 2013 Alan Cudmore
  *
  *  The license and distribution terms for this file may be
@@ -31,9 +32,23 @@ extern "C" {
 
 #define BSP_FEATURE_IRQ_EXTENSION
 
+#define RPI_L2_CACHE_ENABLE 1
+
 #define BSP_GPIO_PIN_COUNT 32
 #define BSP_GPIO_PINS_PER_BANK 32
 #define BSP_GPIO_PINS_PER_SELECT_BANK 10
+
+#define BSP_CONSOLE_UART0   0
+#define BSP_CONSOLE_FB      1
+
+void rpi_init_cmdline(void);
+const char *rpi_cmdline_get_cached(void);
+const char *rpi_cmdline_get_raw(void);
+const char *rpi_cmdline_get_arg(const char* arg);
+
+void  rpi_video_init(void);
+void  rpi_fb_outch  (char);
+int rpi_video_is_initialized(void);
 
 #ifdef __cplusplus
 }

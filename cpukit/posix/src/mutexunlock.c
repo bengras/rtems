@@ -18,14 +18,8 @@
 #include "config.h"
 #endif
 
-#include <errno.h>
-#include <pthread.h>
-
-#include <rtems/system.h>
-#include <rtems/score/coremuteximpl.h>
-#include <rtems/score/watchdog.h>
 #include <rtems/posix/muteximpl.h>
-#include <rtems/posix/priorityimpl.h>
+#include <rtems/posix/posixapi.h>
 
 /*
  *  11.3.3 Locking and Unlocking a Mutex, P1003.1c/Draft 10, p. 93
@@ -37,33 +31,44 @@ int pthread_mutex_unlock(
   pthread_mutex_t           *mutex
 )
 {
-  register POSIX_Mutex_Control *the_mutex;
-  Objects_Locations             location;
-  CORE_mutex_Status             status;
-  ISR_lock_Context              lock_context;
+  POSIX_Mutex_Control  *the_mutex;
+  Thread_queue_Context  queue_context;
+  Thread_Control       *executing;
+  Status_Control        status;
 
-  the_mutex = _POSIX_Mutex_Get_interrupt_disable(
-    mutex,
-    &location,
-    &lock_context
-  );
-  switch ( location ) {
+  the_mutex = _POSIX_Mutex_Get( mutex, &queue_context );
 
-    case OBJECTS_LOCAL:
-      status = _CORE_mutex_Surrender(
+  if ( the_mutex == NULL ) {
+    return EINVAL;
+  }
+
+  executing = _Thread_Executing;
+
+  switch ( the_mutex->protocol ) {
+    case POSIX_MUTEX_PRIORITY_CEILING:
+      status = _CORE_ceiling_mutex_Surrender(
         &the_mutex->Mutex,
-        NULL,
-        0,
-        &lock_context
+        executing,
+        &queue_context
       );
-      return _POSIX_Mutex_Translate_core_mutex_return_code( status );
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
+      break;
+    case POSIX_MUTEX_NO_PROTOCOL:
+      status = _CORE_recursive_mutex_Surrender_no_protocol(
+        &the_mutex->Mutex.Recursive,
+        POSIX_MUTEX_NO_PROTOCOL_TQ_OPERATIONS,
+        executing,
+        &queue_context
+      );
+      break;
+    default:
+      _Assert( the_mutex->protocol == POSIX_MUTEX_PRIORITY_INHERIT );
+      status = _CORE_recursive_mutex_Surrender(
+        &the_mutex->Mutex.Recursive,
+        executing,
+        &queue_context
+      );
       break;
   }
 
-  return EINVAL;
+  return _POSIX_Get_error( status );
 }

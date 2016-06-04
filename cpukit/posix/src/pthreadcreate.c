@@ -74,7 +74,7 @@ int pthread_create(
   struct sched_param                  schedparam;
   Objects_Name                        name;
   int                                 rc;
-  ISR_Level                           level;
+  ISR_lock_Context                    lock_context;
 
   if ( !start_routine )
     return EFAULT;
@@ -201,12 +201,20 @@ int pthread_create(
     return EAGAIN;
   }
 
+  if ( the_attr->detachstate == PTHREAD_CREATE_DETACHED ) {
+    the_thread->Life.state |= THREAD_LIFE_DETACHED;
+  }
+
+  the_thread->Life.state |= THREAD_LIFE_CHANGE_DEFERRED;
+
 #if defined(RTEMS_SMP) && __RTEMS_HAVE_SYS_CPUSET_H__
+  _ISR_lock_ISR_disable( &lock_context );
    status = _Scheduler_Set_affinity(
      the_thread,
      the_attr->affinitysetsize,
      the_attr->affinityset
    );
+  _ISR_lock_ISR_enable( &lock_context );
    if ( !status ) {
      _POSIX_Threads_Free( the_thread );
      _RTEMS_Unlock_allocator();
@@ -220,16 +228,14 @@ int pthread_create(
   api = the_thread->API_Extensions[ THREAD_API_POSIX ];
 
   _POSIX_Threads_Copy_attributes( &api->Attributes, the_attr );
-  api->detachstate = the_attr->detachstate;
   api->schedpolicy = schedpolicy;
   api->schedparam  = schedparam;
-
-  _Thread_Disable_dispatch();
 
   /*
    *  POSIX threads are allocated and started in one operation.
    */
-  status = _Thread_Start( the_thread, &entry );
+  _ISR_lock_ISR_disable( &lock_context );
+  status = _Thread_Start( the_thread, &entry, &lock_context );
 
   #if defined(RTEMS_DEBUG)
     /*
@@ -239,7 +245,6 @@ int pthread_create(
      *        thread while we are creating it.
      */
     if ( !status ) {
-      _Thread_Enable_dispatch();
       _POSIX_Threads_Free( the_thread );
       _Objects_Allocator_unlock();
       return EINVAL;
@@ -247,16 +252,14 @@ int pthread_create(
   #endif
 
   if ( schedpolicy == SCHED_SPORADIC ) {
-    _ISR_Disable( level );
+    _ISR_lock_ISR_disable( &lock_context );
     _Watchdog_Per_CPU_insert_relative(
       &api->Sporadic_timer,
       _Per_CPU_Get(),
       _Timespec_To_ticks( &api->schedparam.sched_ss_repl_period )
     );
-    _ISR_Enable( level );
+    _ISR_lock_ISR_enable( &lock_context );
   }
-
-  _Thread_Enable_dispatch();
 
   /*
    *  Return the id and indicate we successfully created the thread

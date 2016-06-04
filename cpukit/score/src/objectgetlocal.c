@@ -25,10 +25,10 @@
 
 #include <rtems/score/objectimpl.h>
 
-Objects_Control *_Objects_Get_local(
-  const Objects_Information *information,
+Objects_Control *_Objects_Get(
   Objects_Id                 id,
-  ISR_lock_Context          *lock_context
+  ISR_lock_Context          *lock_context,
+  const Objects_Information *information
 )
 {
   uint32_t index;

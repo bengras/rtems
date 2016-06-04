@@ -23,8 +23,12 @@
 #include "config.h"
 #endif
 
+#define TESTS_USE_PRINTK
+#include "tmacros.h"
+
 #include <assert.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include <rtems.h>
 #include <rtems/bdbuf.h>
@@ -401,7 +405,7 @@ static rtems_task Init(rtems_task_argument argument)
   size_t i_rel = 0;
   size_t i_p = 0;
 
-  rtems_test_begink();
+  TEST_BEGIN();
 
   task_id_init = rtems_task_self();
 
@@ -465,7 +469,7 @@ static rtems_task Init(rtems_task_argument argument)
     }
   }
 
-  rtems_test_endk();
+  TEST_END();
 
   exit(0);
 }

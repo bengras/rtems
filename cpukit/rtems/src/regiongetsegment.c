@@ -20,7 +20,7 @@
 
 #include <rtems/rtems/regionimpl.h>
 #include <rtems/rtems/optionsimpl.h>
-#include <rtems/score/apimutex.h>
+#include <rtems/rtems/statusimpl.h>
 #include <rtems/score/threadqimpl.h>
 #include <rtems/score/statesimpl.h>
 
@@ -32,79 +32,70 @@ rtems_status_code rtems_region_get_segment(
   void              **segment
 )
 {
-  Thread_Control     *executing;
-  Objects_Locations   location;
-  rtems_status_code   return_status;
-  Region_Control     *the_region;
-  void               *the_segment;
+  rtems_status_code  status;
+  Region_Control    *the_region;
 
-  if ( !segment )
+  if ( segment == NULL ) {
     return RTEMS_INVALID_ADDRESS;
+  }
 
   *segment = NULL;
 
-  if ( size == 0 )
+  if ( size == 0 ) {
     return RTEMS_INVALID_SIZE;
+  }
 
-  _RTEMS_Lock_allocator();
+  the_region = _Region_Get_and_lock( id );
 
-    executing  = _Thread_Get_executing();
-    the_region = _Region_Get( id, &location );
-    switch ( location ) {
+  if ( the_region == NULL ) {
+    return RTEMS_INVALID_ID;
+  }
 
-      case OBJECTS_LOCAL:
-        if ( size > the_region->maximum_segment_size )
-          return_status = RTEMS_INVALID_SIZE;
+  if ( size > the_region->maximum_segment_size ) {
+    status = RTEMS_INVALID_SIZE;
+  } else {
+    void *the_segment;
 
-        else {
-          the_segment = _Region_Allocate_segment( the_region, size );
+    the_segment = _Region_Allocate_segment( the_region, size );
 
-          if ( the_segment ) {
-            the_region->number_of_used_blocks += 1;
-            *segment = the_segment;
-            return_status = RTEMS_SUCCESSFUL;
-          } else if ( _Options_Is_no_wait( option_set ) ) {
-            return_status = RTEMS_UNSATISFIED;
-          } else {
-            /*
-             *  Switch from using the memory allocation mutex to using a
-             *  dispatching disabled critical section.  We have to do this
-             *  because this thread is going to block.
-             */
-            /* FIXME: Lock order reversal */
-            _Thread_Disable_dispatch();
-            _RTEMS_Unlock_allocator();
+    if ( the_segment != NULL ) {
+      *segment = the_segment;
+      status = RTEMS_SUCCESSFUL;
+    } else if ( _Options_Is_no_wait( option_set ) ) {
+      status = RTEMS_UNSATISFIED;
+    } else {
+      Per_CPU_Control *cpu_self;
+      Thread_Control  *executing;
 
-            executing->Wait.count           = size;
-            executing->Wait.return_argument = segment;
+      /*
+       *  Switch from using the memory allocation mutex to using a
+       *  dispatching disabled critical section.  We have to do this
+       *  because this thread is going to block.
+       */
+      /* FIXME: This is a home grown condition variable */
+      cpu_self = _Thread_Dispatch_disable();
+      _Region_Unlock( the_region );
 
-            _Thread_queue_Enqueue(
-              &the_region->Wait_queue,
-              the_region->wait_operations,
-              executing,
-              STATES_WAITING_FOR_SEGMENT,
-              timeout,
-              RTEMS_TIMEOUT
-            );
+      executing  = _Per_CPU_Get_executing( cpu_self );
 
-            _Objects_Put( &the_region->Object );
+      executing->Wait.count           = size;
+      executing->Wait.return_argument = segment;
 
-            return (rtems_status_code) executing->Wait.return_code;
-          }
-        }
-        break;
+      _Thread_queue_Enqueue(
+        &the_region->Wait_queue,
+        the_region->wait_operations,
+        executing,
+        STATES_WAITING_FOR_SEGMENT,
+        timeout,
+        2
+      );
 
-#if defined(RTEMS_MULTIPROCESSING)
-      case OBJECTS_REMOTE:        /* this error cannot be returned */
-#endif
+      _Thread_Dispatch_enable( cpu_self );
 
-      case OBJECTS_ERROR:
-      default:
-        return_status = RTEMS_INVALID_ID;
-        break;
+      return _Status_Get_after_wait( executing );
     }
+  }
 
-  _RTEMS_Unlock_allocator();
-
-  return return_status;
+  _Region_Unlock( the_region );
+  return status;
 }

@@ -9,6 +9,8 @@
  *  COPYRIGHT (c) 1989-2011.
  *  On-Line Applications Research Corporation (OAR).
  *
+ *  Copyright (c) 2016 embedded brains GmbH.
+ *
  *  The license and distribution terms for this file may be
  *  found in the file LICENSE in this distribution or at
  *  http://www.rtems.org/license/LICENSE.
@@ -20,60 +22,18 @@
 
 #include <pthread.h>
 
-#include <rtems/posix/pthreadimpl.h>
-#include <rtems/score/assert.h>
-#include <rtems/score/apimutex.h>
 #include <rtems/score/threadimpl.h>
-#include <rtems/score/threadqimpl.h>
 
-void _POSIX_Thread_Exit(
-  Thread_Control *the_thread,
-  void           *value_ptr
-)
+void pthread_exit( void *value_ptr )
 {
-  Thread_Control    *unblocked;
-  POSIX_API_Control *api;
-  bool               previous_life_protection;
+  Thread_Control  *executing;
+  Per_CPU_Control *cpu_self;
 
-  api = the_thread->API_Extensions[ THREAD_API_POSIX ];
+  cpu_self = _Thread_Dispatch_disable();
+  executing = _Per_CPU_Get_executing( cpu_self );
 
-  _Assert( _Debug_Is_thread_dispatching_allowed() );
+  _Thread_Exit( executing, THREAD_LIFE_TERMINATING, value_ptr );
 
-  previous_life_protection = _Thread_Set_life_protection( true );
-  _Thread_Disable_dispatch();
-
-  the_thread->Wait.return_argument = value_ptr;
-
-  /*
-   * Process join
-   */
-  if ( api->detachstate == PTHREAD_CREATE_JOINABLE ) {
-    unblocked = _POSIX_Threads_Join_dequeue( api );
-    if ( unblocked ) {
-      do {
-        *(void **)unblocked->Wait.return_argument = value_ptr;
-      } while ( ( unblocked = _POSIX_Threads_Join_dequeue( api ) ) );
-    } else {
-      _Thread_Set_state( the_thread, STATES_WAITING_FOR_JOIN_AT_EXIT );
-      _Thread_Enable_dispatch();
-      /* now waiting for thread to arrive */
-      _Thread_Disable_dispatch();
-    }
-  }
-
-  /*
-   *  Now shut down the thread
-   */
-  _Thread_Close( the_thread, _Thread_Executing );
-
-  _Thread_Enable_dispatch();
-  _Thread_Set_life_protection( previous_life_protection );
-}
-
-void pthread_exit(
-  void  *value_ptr
-)
-{
-  _POSIX_Thread_Exit( _Thread_Get_executing(), value_ptr );
+  _Thread_Dispatch_enable( cpu_self );
   RTEMS_UNREACHABLE();
 }

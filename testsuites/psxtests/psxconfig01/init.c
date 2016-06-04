@@ -57,9 +57,6 @@ const char rtems_test_name[] = "PSXCONFIG 1";
 #define CONFIGURE_MAXIMUM_REGIONS 43
 #define CONFIGURE_MAXIMUM_SEMAPHORES 47
 #define CONFIGURE_MAXIMUM_TASKS 11
-#if !defined(RTEMS_SMP)
-  #define CONFIGURE_MAXIMUM_TASK_VARIABLES 13
-#endif
 #define CONFIGURE_MAXIMUM_TIMERS 59
 #define CONFIGURE_MAXIMUM_USER_EXTENSIONS 17
 
@@ -130,7 +127,6 @@ const char rtems_test_name[] = "PSXCONFIG 1";
 #endif
 
 #ifdef POSIX_MQ_COUNT
-  #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS POSIX_MQ_COUNT
   #define CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES POSIX_MQ_COUNT
 
   #define POSIX_MQ_0_COUNT 2
@@ -201,28 +197,17 @@ typedef struct {
   static area region_areas [CONFIGURE_MAXIMUM_REGIONS];
 #endif
 
-static char posix_name [NAME_MAX];
-
-#if !defined(RTEMS_SMP)
-  static void *task_var;
-#endif
+static char posix_name [_POSIX_PATH_MAX + 1];
 
 static char *get_posix_name(char a, char b, char c, int i)
 {
-  posix_name [NAME_MAX - 5] = a;
-  posix_name [NAME_MAX - 4] = b;
-  posix_name [NAME_MAX - 3] = c;
-  posix_name [NAME_MAX - 2] = 'A' + i;
+  posix_name [_POSIX_PATH_MAX - 4] = a;
+  posix_name [_POSIX_PATH_MAX - 3] = b;
+  posix_name [_POSIX_PATH_MAX - 2] = c;
+  posix_name [_POSIX_PATH_MAX - 1] = 'A' + i;
 
   return posix_name;
 }
-
-#if !defined(RTEMS_SMP)
-static void task_var_dtor(void *var RTEMS_UNUSED)
-{
-  /* Do nothing */
-}
-#endif
 
 static void *posix_thread(void *arg RTEMS_UNUSED)
 {
@@ -436,21 +421,6 @@ static rtems_task Init(rtems_task_argument argument)
   );
 #endif
 
-#if !defined(RTEMS_SMP)
-#ifdef CONFIGURE_MAXIMUM_TASK_VARIABLES
-  /*
-   * We know this is deprecated and don't want a warning on every BSP built.
-   */
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    for (i = 0; i < CONFIGURE_MAXIMUM_TASK_VARIABLES; ++i) {
-      sc = rtems_task_variable_add(RTEMS_SELF, &task_var, task_var_dtor);
-      directive_failed(sc, "rtems_task_variable_add");
-    }
-  #pragma GCC diagnostic pop
-#endif
-#endif
-
 #ifdef CONFIGURE_MAXIMUM_TIMERS
   for (i = 0; i < CONFIGURE_MAXIMUM_TIMERS; ++i) {
     sc = rtems_timer_create(name, &id);
@@ -500,10 +470,6 @@ static rtems_task Init(rtems_task_argument argument)
     rtems_test_assert(mq >= 0);
   }
   rtems_resource_snapshot_take(&snapshot);
-  rtems_test_assert(
-    snapshot.posix_api.active_message_queue_descriptors
-      == CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUE_DESCRIPTORS
-  );
   rtems_test_assert(
     snapshot.posix_api.active_message_queues
       == CONFIGURE_MAXIMUM_POSIX_MESSAGE_QUEUES

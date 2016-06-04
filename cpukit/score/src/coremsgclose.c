@@ -21,39 +21,34 @@
 #include <rtems/score/coremsgimpl.h>
 #include <rtems/score/wkspace.h>
 
-void _CORE_message_queue_Do_close(
-  CORE_message_queue_Control *the_message_queue,
-  uint32_t                    status
-#if defined(RTEMS_MULTIPROCESSING)
-  ,
-  Thread_queue_MP_callout     mp_callout,
-  Objects_Id                  mp_id
-#endif
+static Thread_Control *_CORE_message_queue_Was_deleted(
+  Thread_Control       *the_thread,
+  Thread_queue_Queue   *queue,
+  Thread_queue_Context *queue_context
 )
 {
-  ISR_lock_Context lock_context;
+  the_thread->Wait.return_code = STATUS_MESSAGE_QUEUE_WAS_DELETED;
+
+  return the_thread;
+}
+
+void _CORE_message_queue_Close(
+  CORE_message_queue_Control *the_message_queue,
+  Thread_queue_Context       *queue_context
+)
+{
 
   /*
    *  This will flush blocked threads whether they were blocked on
    *  a send or receive.
    */
 
-  _Thread_queue_Flush(
-    &the_message_queue->Wait_queue,
+  _Thread_queue_Flush_critical(
+    &the_message_queue->Wait_queue.Queue,
     the_message_queue->operations,
-    status,
-    mp_callout,
-    mp_id
+    _CORE_message_queue_Was_deleted,
+    queue_context
   );
-
-  /*
-   *  This removes all messages from the pending message queue.  Since
-   *  we just flushed all waiting threads, we don't have to worry about
-   *  the flush satisfying any blocked senders as a side-effect.
-   */
-
-  _ISR_lock_ISR_disable( &lock_context );
-  (void) _CORE_message_queue_Flush( the_message_queue, &lock_context );
 
   (void) _Workspace_Free( the_message_queue->message_buffers );
 

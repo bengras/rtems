@@ -18,48 +18,31 @@
 #include "config.h"
 #endif
 
-#include <stdarg.h>
-
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
 #include <semaphore.h>
 #include <limits.h>
 
-#include <rtems/system.h>
 #include <rtems/posix/semaphoreimpl.h>
-#include <rtems/seterr.h>
+#include <rtems/posix/posixapi.h>
 
 int sem_post(
   sem_t  *sem
 )
 {
-  POSIX_Semaphore_Control          *the_semaphore;
-  Objects_Locations                 location;
-  ISR_lock_Context                  lock_context;
+  POSIX_Semaphore_Control *the_semaphore;
+  Thread_queue_Context     queue_context;
+  Status_Control           status;
 
-  the_semaphore = _POSIX_Semaphore_Get_interrupt_disable(
-    sem,
-    &location,
-    &lock_context
-  );
-  switch ( location ) {
+  the_semaphore = _POSIX_Semaphore_Get( sem, &queue_context );
 
-    case OBJECTS_LOCAL:
-      _CORE_semaphore_Surrender(
-        &the_semaphore->Semaphore,
-        NULL,
-        0,
-        &lock_context
-      );
-      return 0;
-
-#if defined(RTEMS_MULTIPROCESSING)
-    case OBJECTS_REMOTE:
-#endif
-    case OBJECTS_ERROR:
-      break;
+  if ( the_semaphore == NULL ) {
+    rtems_set_errno_and_return_minus_one( EINVAL );
   }
 
-  rtems_set_errno_and_return_minus_one( EINVAL );
+  status = _CORE_semaphore_Surrender(
+    &the_semaphore->Semaphore,
+    POSIX_SEMAPHORE_TQ_OPERATIONS,
+    SEM_VALUE_MAX,
+    &queue_context
+  );
+  return _POSIX_Zero_or_minus_one_plus_errno( status );
 }
