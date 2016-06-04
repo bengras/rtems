@@ -44,11 +44,17 @@ rtems_task Init(
 	}	
 
 void configure(void) {
+	unsigned int freq = 2000;
+
+	printf("using CLOCK_DIV_VAL of %d\n", CLOCK_DIV_VAL);
+
 	EHRPWMTimebaseClkConfig(SOC_EPWM_2_REGS,SOC_EHRPWM_2_MODULE_FREQ/CLOCK_DIV_VAL,SOC_EHRPWM_2_MODULE_FREQ);
+
+	printf("programming %u Hz\n", freq);
 
 	EHRPWMPWMOpFreqSet(SOC_EPWM_2_REGS,
                        SOC_EHRPWM_2_MODULE_FREQ/CLOCK_DIV_VAL,
-                       (unsigned int)(2000), // 1 Hz -> this value specifies frequency 
+                       (unsigned int)freq, // 1 Hz -> this value specifies frequency 
                        (unsigned int)EHRPWM_COUNT_UP,
                        (bool)EHRPWM_SHADOW_WRITE_DISABLE);
 		/* Disable synchronization*/

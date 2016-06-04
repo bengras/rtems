@@ -44,6 +44,9 @@
 #include<bsp/bbb-gpio.h>
 #include<bsp.h>
 #include<stdbool.h>
+#ifdef __rtems__
+#include<assert.h>
+#endif
 
 /**
  * \brief   This function Enables TBCLK(Time Base Clock) for specific
@@ -293,10 +296,20 @@ void EHRPWMPWMOpFreqSet(unsigned int baseAddr,
 
      if(EHRPWM_COUNT_UP_DOWN == counterDir)
      {
+#ifdef __rtems__
+	printf("programming TBPRD with half of period count %u\n", tbPeriodCount);
+	 assert(tbPeriodCount/2 >= 1);
+	 assert(tbPeriodCount/2 < 65536);
+#endif
          REG16(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount/2;
      }
      else
      {
+#ifdef __rtems__
+	printf("programming TBPRD with full period count %u\n", tbPeriodCount);
+	 assert(tbPeriodCount >= 1);
+	 assert(tbPeriodCount < 65536);
+#endif
          REG16(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount;
      }
 
