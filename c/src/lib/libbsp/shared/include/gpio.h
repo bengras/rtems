@@ -945,6 +945,115 @@ extern rtems_status_code rtems_gpio_bsp_disable_interrupt(
   rtems_gpio_interrupt interrupt
 );
 
+//**********************************************************************
+//  API FUNCTION PROTOTYPES
+//**********************************************************************/
+typedef  char boolean;
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#ifdef FALSE
+#define FALSE 0
+#endif
+
+/* added from platform/evmAM335x/pwmss.c Ti starterware(SW) */
+extern void PWMSSTBClkEnable(unsigned int instance);
+extern void PWMSSModuleClkConfig(unsigned int instanceNum);
+
+/* added from drivers/ehrpwm.c Ti SW */
+/* Timebase sub-module */
+extern void EHRPWMTimebaseClkConfig(unsigned int baseAddr, unsigned int tbClk, 
+		unsigned int moduleClk);
+extern void EHRPWMPWMOpFreqSet(unsigned int baseAddr, unsigned int tbClk,
+		unsigned int pwmFreq,unsigned int counterDir, 
+		boolean enableShadowWrite);
+extern void EHRPWMTBEmulationModeSet(unsigned int baseAddr, unsigned int mode);
+extern void EHRPWMTimebaseSyncEnable(unsigned int baseAddr, unsigned int tbPhsValue,
+	       	unsigned int phsCountDir);
+extern void EHRPWMTimebaseSyncDisable(unsigned int baseAddr); 
+extern void EHRPWMTriggerSWSync(unsigned int baseAddr);
+extern void EHRPWMSyncOutModeSet(unsigned int baseAddr, unsigned int syncOutMode);
+extern void EHRPWMWriteTBCount(unsigned int baseAddr, unsigned int tbCount);
+extern unsigned int EHRPWMReadTBCount(unsigned int baseAddr);
+extern unsigned int EHRPWMTBStatusGet(unsigned int baseAddr, unsigned int tbStatusMask);
+extern void EHRPWMTBClearStatus(unsigned int baseAddr, unsigned int tbStatusMask);
+
+
+/* Counter compare sub-module */
+extern bool EHRPWMLoadCMPA(unsigned int baseAddr, unsigned int CMPAVal,
+		boolean enableShadowWrite, unsigned int ShadowToActiveLoadTrigger, 
+		boolean OverwriteShadowFull);
+
+extern bool EHRPWMLoadCMPB(unsigned int baseAddr, unsigned int CMPBVal,
+		boolean enableShadowWrite, unsigned int ShadowToActiveLoadTrigger,
+		boolean OverwriteShadowFull);
+
+/* Action Qualifier sub-module */
+extern void EHRPWMConfigureAQActionOnA(unsigned int baseAddr, unsigned int zero, 
+		unsigned int period,
+		unsigned int CAUp,  unsigned int CADown,  unsigned int CBUp,
+		unsigned int CBDown, unsigned int SWForced);
+extern void EHRPWMConfigureAQActionOnB(unsigned int baseAddr, unsigned int zero, 
+		unsigned int period,
+		unsigned int CAUp,  unsigned int CADown,  unsigned int CBUp,
+		unsigned int CBDown, unsigned int SWForced);
+extern void EHRPWMSWForceA(unsigned int baseAddr);
+extern void EHRPWMSWForceB(unsigned int baseAddr);
+extern void EHRPWMAQContSWForceOnA(unsigned int baseAddr, unsigned int forceVal, 
+		unsigned int activeRegReloadMode);
+extern void EHRPWMAQContSWForceOnB(unsigned int baseAddr, unsigned int forceVal, 
+		unsigned int activeRegReloadMode);
+
+/* Dead Band Generator */
+extern void EHRPWMDBSourceSelect(unsigned int baseAddr, unsigned int DBgenSource);
+extern void EHRPWMDBPolaritySelect(unsigned int baseAddr, unsigned int DBgenPol);
+extern void EHRPWMDBOutput(unsigned int baseAddr, unsigned int DBgenOpMode);
+extern void EHRPWMDBConfigureRED(unsigned int baseAddr, unsigned int raisingEdgeDelay);
+extern void EHRPWMDBConfigureFED(unsigned int baseAddr, unsigned int fallingEdgeDelay);
+
+/* Chopper sub-module */
+extern void EHRPWMConfigureChopperDuty(unsigned int baseAddr, unsigned int dutyCycle);
+extern void EHRPWMConfigureChopperFreq(unsigned int baseAddr, unsigned int freqDiv);
+extern void EHRPWMConfigureChopperOSPW(unsigned int baseAddr, unsigned int OSPWCycles);
+extern void EHRPWMChopperEnable(unsigned int baseAddr);
+extern void EHRPWMChopperDisable(unsigned int baseAddr);
+
+/* Trip-Zone sub-module */
+extern void EHRPWMTZTripEventEnable(unsigned int baseAddr, boolean osht_CBC);
+extern void EHRPWMTZTripEventDisable(unsigned int baseAddr, boolean osht_CBC);
+extern void EHRPWMTZForceAOnTrip(unsigned int baseAddr, unsigned int opValue);
+extern void EHRPWMTZForceBOnTrip(unsigned int baseAddr, unsigned int opValue);
+extern void EHRPWMTZIntEnable(unsigned int baseAddr, boolean osht_CBC);
+extern void EHRPWMTZIntDisable(unsigned int baseAddr, boolean osht_CBC);
+extern unsigned int EHRPWMTZFlagGet(unsigned int baseAddr, unsigned int flagToRead);
+extern void EHRPWMTZFlagClear(unsigned int baseAddr, unsigned int flagToClear);
+extern void EHRPWMTZSWFrcEvent(unsigned int baseAddr, boolean osht_CBC);
+
+/* Event Trigger sub-module */
+extern void EHRPWMETIntDisable(unsigned int baseAddr);
+extern void EHRPWMETIntEnable(unsigned int baseAddr);
+extern void EHRPWMETIntSourceSelect(unsigned int baseAddr, unsigned int selectInt);
+extern void EHRPWMETIntPrescale(unsigned int baseAddr, unsigned int prescale);
+extern bool EHRPWMETEventCount(unsigned int baseAddr);
+extern bool EHRPWMETIntStatus(unsigned int baseAddr);
+extern void EHRPWMETIntClear(unsigned int baseAddr);
+extern void EHRPWMETIntSWForce(unsigned int baseAddr);
+
+/* HEPWM sub-module */
+extern void EHRPWMLoadTBPHSHR(unsigned int baseAddr, unsigned int TBPHSHRVal);
+extern void EHRPWMLoadCMPAHR(unsigned int baseAddr, unsigned int CMPAHRVal, 
+		unsigned int ShadowToActiveLoadTrigger);
+extern void EHRPWMConfigHR(unsigned int baseAddr,unsigned int ctrlMode, 
+		unsigned int MEPCtrlEdge); /* also enables */
+extern void EHRPWMHRDisable(unsigned int baseAddr);
+extern void EHRPWMClockEnable(unsigned int baseAdd);
+extern void EHRPWMClockDisable(unsigned int baseAdd);
+extern unsigned int EHRPWMClockEnableStatusGet(unsigned int baseAdd);
+extern unsigned int EHRPWMClockDisableStatusGet(unsigned int baseAdd);
+
+
 /** @} */
 
 #ifdef __cplusplus

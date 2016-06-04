@@ -117,6 +117,9 @@ libbsp_a_SOURCES += misc/i2c.c
 # GPIO
 libbsp_a_SOURCES += gpio/bbb-gpio.c
 
+# PWM
+libbsp_a_SOURCES += pwm/bbb-pwm.c
+
 #RTC
 libbsp_a_SOURCES += rtc.c
 libbsp_a_SOURCES += ../../shared/tod.c

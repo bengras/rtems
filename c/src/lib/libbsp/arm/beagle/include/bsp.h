@@ -54,6 +54,28 @@
 #define REG(x)(*((volatile uint32_t *)(x)))
 #define BIT(x)(0x1 << x)
 
+/* Macros from include/hw/hw_types.h - TI StarterWare */
+//*****************************************************************************
+//
+// Macros for hardware access, both direct and via the bit-band region.
+//
+//*****************************************************************************
+#define HWREG(x)                                                              \
+        (*((volatile unsigned int *)(x)))
+#define HWREGH(x)                                                             \
+        (*((volatile unsigned short *)(x)))
+#define HWREGB(x)                                                             \
+        (*((volatile unsigned char *)(x)))
+#define HWREGBITW(x, b)                                                       \
+        HWREG(((unsigned int)(x) & 0xF0000000) | 0x02000000 |                \
+              (((unsigned int)(x) & 0x000FFFFF) << 5) | ((b) << 2))
+#define HWREGBITH(x, b)                                                       \
+        HWREGH(((unsigned int)(x) & 0xF0000000) | 0x02000000 |               \
+               (((unsigned int)(x) & 0x000FFFFF) << 5) | ((b) << 2))
+#define HWREGBITB(x, b)                                                       \
+        HWREGB(((unsigned int)(x) & 0xF0000000) | 0x02000000 |               \
+               (((unsigned int)(x) & 0x000FFFFF) << 5) | ((b) << 2))
+
 #define udelay(u) rtems_task_wake_after(1 + ((u)/rtems_configuration_get_microseconds_per_tick()))
 
 /* Write a uint32_t value to a memory address. */
