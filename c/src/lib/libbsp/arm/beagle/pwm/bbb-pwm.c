@@ -61,17 +61,17 @@ void PWMSSTBClkEnable(unsigned int instance)
     {
 
          case 0:
-               HWREG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
+               REG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
                                              CONTROL_PWMSS_CTRL_PWMSS0_TBCLKEN;
                break;
 
          case 1:
-               HWREG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
+               REG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
                                              CONTROL_PWMSS_CTRL_PWMMS1_TBCLKEN;
                break;
 
          case 2:
-               HWREG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
+               REG(SOC_CONTROL_REGS + CONTROL_PWMSS_CTRL) |=
                                              CONTROL_PWMSS_CTRL_PWMSS2_TBCLKEN;
                break;
 
@@ -99,93 +99,93 @@ void PWMSSTBClkEnable(unsigned int instance)
   */
 void PWMSSModuleClkConfig(unsigned int instanceNum)
 {
-    HWREG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) |= 
                              CM_PER_L3S_CLKSTCTRL_CLKTRCTRL_SW_WKUP;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) & 
      CM_PER_L3S_CLKSTCTRL_CLKTRCTRL) != CM_PER_L3S_CLKSTCTRL_CLKTRCTRL_SW_WKUP);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) |= 
                              CM_PER_L3_CLKSTCTRL_CLKTRCTRL_SW_WKUP;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) & 
      CM_PER_L3_CLKSTCTRL_CLKTRCTRL) != CM_PER_L3_CLKSTCTRL_CLKTRCTRL_SW_WKUP);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_L3_INSTR_CLKCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L3_INSTR_CLKCTRL) |= 
                              CM_PER_L3_INSTR_CLKCTRL_MODULEMODE_ENABLE;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L3_INSTR_CLKCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L3_INSTR_CLKCTRL) & 
                                CM_PER_L3_INSTR_CLKCTRL_MODULEMODE) != 
                                    CM_PER_L3_INSTR_CLKCTRL_MODULEMODE_ENABLE);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_L3_CLKCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L3_CLKCTRL) |= 
                              CM_PER_L3_CLKCTRL_MODULEMODE_ENABLE;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L3_CLKCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L3_CLKCTRL) & 
         CM_PER_L3_CLKCTRL_MODULEMODE) != CM_PER_L3_CLKCTRL_MODULEMODE_ENABLE);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) |= 
                              CM_PER_OCPWP_L3_CLKSTCTRL_CLKTRCTRL_SW_WKUP;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) & 
                               CM_PER_OCPWP_L3_CLKSTCTRL_CLKTRCTRL) != 
                                 CM_PER_OCPWP_L3_CLKSTCTRL_CLKTRCTRL_SW_WKUP);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) |= 
                              CM_PER_L4LS_CLKSTCTRL_CLKTRCTRL_SW_WKUP;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) & 
                              CM_PER_L4LS_CLKSTCTRL_CLKTRCTRL) != 
                                CM_PER_L4LS_CLKSTCTRL_CLKTRCTRL_SW_WKUP);
 
-    HWREG(SOC_PRCM_REGS + CM_PER_L4LS_CLKCTRL) |= 
+    REG(SOC_PRCM_REGS + CM_PER_L4LS_CLKCTRL) |= 
                              CM_PER_L4LS_CLKCTRL_MODULEMODE_ENABLE;
 
-    while((HWREG(SOC_PRCM_REGS + CM_PER_L4LS_CLKCTRL) & 
+    while((REG(SOC_PRCM_REGS + CM_PER_L4LS_CLKCTRL) & 
       CM_PER_L4LS_CLKCTRL_MODULEMODE) != CM_PER_L4LS_CLKCTRL_MODULEMODE_ENABLE);
 
     if(0 == instanceNum)
     {
-        HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) |=
+        REG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) |=
             CM_PER_EPWMSS0_CLKCTRL_MODULEMODE_ENABLE;
 
         while(CM_PER_EPWMSS0_CLKCTRL_MODULEMODE_ENABLE !=
-              (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) &
+              (REG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) &
                CM_PER_EPWMSS0_CLKCTRL_MODULEMODE));
 
         while((CM_PER_EPWMSS0_CLKCTRL_IDLEST_FUNC <<
                CM_PER_EPWMSS0_CLKCTRL_IDLEST_SHIFT) !=
-              (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) &
+              (REG(SOC_PRCM_REGS + CM_PER_EPWMSS0_CLKCTRL) &
                CM_PER_EPWMSS0_CLKCTRL_IDLEST));
 
     }
     else if(1 == instanceNum)
     {
-        HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) |=
+        REG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) |=
             CM_PER_EPWMSS1_CLKCTRL_MODULEMODE_ENABLE;
 
         while(CM_PER_EPWMSS1_CLKCTRL_MODULEMODE_ENABLE !=
-              (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) &
+              (REG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) &
                CM_PER_EPWMSS1_CLKCTRL_MODULEMODE));
 
         while((CM_PER_EPWMSS1_CLKCTRL_IDLEST_FUNC <<
                CM_PER_EPWMSS1_CLKCTRL_IDLEST_SHIFT) !=
-               (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) &
+               (REG(SOC_PRCM_REGS + CM_PER_EPWMSS1_CLKCTRL) &
                CM_PER_EPWMSS1_CLKCTRL_IDLEST));
 
     }
     else if(2 == instanceNum)
     {
-        HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) |=
+        REG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) |=
             CM_PER_EPWMSS2_CLKCTRL_MODULEMODE_ENABLE;
 
         while(CM_PER_EPWMSS2_CLKCTRL_MODULEMODE_ENABLE !=
-              (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) &
+              (REG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) &
                CM_PER_EPWMSS2_CLKCTRL_MODULEMODE));
 
         while((CM_PER_EPWMSS2_CLKCTRL_IDLEST_FUNC <<
                CM_PER_EPWMSS2_CLKCTRL_IDLEST_SHIFT) !=
-               (HWREG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) &
+               (REG(SOC_PRCM_REGS + CM_PER_EPWMSS2_CLKCTRL) &
                 CM_PER_EPWMSS2_CLKCTRL_IDLEST));
     }
     else
@@ -193,17 +193,17 @@ void PWMSSModuleClkConfig(unsigned int instanceNum)
 
     }
 
-    while(!(HWREG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) & 
+    while(!(REG(SOC_PRCM_REGS + CM_PER_L3S_CLKSTCTRL) & 
             CM_PER_L3S_CLKSTCTRL_CLKACTIVITY_L3S_GCLK));
 
-    while(!(HWREG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) & 
+    while(!(REG(SOC_PRCM_REGS + CM_PER_L3_CLKSTCTRL) & 
             CM_PER_L3_CLKSTCTRL_CLKACTIVITY_L3_GCLK));
 
-    while(!(HWREG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) & 
+    while(!(REG(SOC_PRCM_REGS + CM_PER_OCPWP_L3_CLKSTCTRL) & 
            (CM_PER_OCPWP_L3_CLKSTCTRL_CLKACTIVITY_OCPWP_L3_GCLK | 
             CM_PER_OCPWP_L3_CLKSTCTRL_CLKACTIVITY_OCPWP_L4_GCLK)));
 
-    while(!(HWREG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) & 
+    while(!(REG(SOC_PRCM_REGS + CM_PER_L4LS_CLKSTCTRL) & 
            (CM_PER_L4LS_CLKSTCTRL_CLKACTIVITY_L4LS_GCLK )));
     
 }
@@ -247,11 +247,11 @@ void EHRPWMTimebaseClkConfig(unsigned int baseAddr,
         lspClkDivSetting = EHRPWM_TBCTL_HSPCLKDIV_DIVBY1;
     }
 
-    HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+    REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
             (~EHRPWM_TBCTL_CLKDIV)) | ((lspClkDivSetting <<
             EHRPWM_TBCTL_CLKDIV_SHIFT) & EHRPWM_TBCTL_CLKDIV);
 
-    HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+    REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
             (~EHRPWM_TBCTL_HSPCLKDIV)) | ((hspClkDiv <<
             EHRPWM_TBCTL_HSPCLKDIV_SHIFT) & EHRPWM_TBCTL_HSPCLKDIV);
 }
@@ -283,21 +283,21 @@ void EHRPWMPWMOpFreqSet(unsigned int baseAddr,
 {
      unsigned int tbPeriodCount = tbClk/pwmFreq;
 
-     HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+     REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
              (~EHRPWM_PRD_LOAD_SHADOW_MASK)) | ((enableShadowWrite <<
             EHRPWM_TBCTL_PRDLD_SHIFT) & EHRPWM_PRD_LOAD_SHADOW_MASK);
 
-     HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+     REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
              (~EHRPWM_COUNTER_MODE_MASK)) | ((counterDir <<
             EHRPWM_TBCTL_CTRMODE_SHIFT) &  EHRPWM_COUNTER_MODE_MASK);
 
      if(EHRPWM_COUNT_UP_DOWN == counterDir)
      {
-         HWREGH(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount/2;
+         REG16(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount/2;
      }
      else
      {
-         HWREGH(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount;
+         REG16(baseAddr + EHRPWM_TBPRD) = (unsigned short)tbPeriodCount;
      }
 
 }
@@ -317,7 +317,7 @@ void EHRPWMPWMOpFreqSet(unsigned int baseAddr,
  **/
 void EHRPWMTBEmulationModeSet(unsigned int baseAddr, unsigned int mode)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+     REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
          (~EHRPWM_TBCTL_FREE_SOFT)) | (mode & EHRPWM_TBCTL_FREE_SOFT);
 }
 
@@ -339,13 +339,13 @@ void EHRPWMTimebaseSyncEnable(unsigned int baseAddr,
                               unsigned int tbPhsValue,
                               unsigned int phsCountDir)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+     REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
              (~EHRPWM_TBCTL_PHSDIR)) |((phsCountDir << EHRPWM_TBCTL_PHSDIR_SHIFT)
              & EHRPWM_TBCTL_PHSDIR);
 
-     HWREGH(baseAddr + EHRPWM_TBPHS) = tbPhsValue & EHRPWM_TBPHS_TBPHS;
+     REG16(baseAddr + EHRPWM_TBPHS) = tbPhsValue & EHRPWM_TBPHS_TBPHS;
 
-     HWREGH(baseAddr + EHRPWM_TBCTL) |= EHRPWM_SYNC_ENABLE;
+     REG16(baseAddr + EHRPWM_TBCTL) |= EHRPWM_SYNC_ENABLE;
 }
 
 
@@ -360,7 +360,7 @@ void EHRPWMTimebaseSyncEnable(unsigned int baseAddr,
  **/
 void EHRPWMTimebaseSyncDisable(unsigned int baseAddr)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTL) &= (~EHRPWM_SYNC_ENABLE);
+     REG16(baseAddr + EHRPWM_TBCTL) &= (~EHRPWM_SYNC_ENABLE);
 }
 
 
@@ -375,7 +375,7 @@ void EHRPWMTimebaseSyncDisable(unsigned int baseAddr)
  **/
 void EHRPWMTriggerSWSync(unsigned int baseAddr)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTL) |= EHRPWM_TBCTL_SWFSYNC;
+     REG16(baseAddr + EHRPWM_TBCTL) |= EHRPWM_TBCTL_SWFSYNC;
 }
 
 
@@ -394,7 +394,7 @@ void EHRPWMTriggerSWSync(unsigned int baseAddr)
  **/
 void EHRPWMSyncOutModeSet(unsigned int baseAddr, unsigned int syncOutMode)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTL) = (HWREGH(baseAddr + EHRPWM_TBCTL) &
+     REG16(baseAddr + EHRPWM_TBCTL) = (REG16(baseAddr + EHRPWM_TBCTL) &
              (~EHRPWM_SYNCOUT_MASK)) | syncOutMode;
 }
 
@@ -409,7 +409,7 @@ void EHRPWMSyncOutModeSet(unsigned int baseAddr, unsigned int syncOutMode)
  **/
 void EHRPWMWriteTBCount(unsigned int baseAddr, unsigned int tbCount)
 {
-     HWREGH(baseAddr + EHRPWM_TBCTR) = tbCount & EHRPWM_TBCTR_TBCTR;
+     REG16(baseAddr + EHRPWM_TBCTR) = tbCount & EHRPWM_TBCTR_TBCTR;
 }
 
 
@@ -423,7 +423,7 @@ void EHRPWMWriteTBCount(unsigned int baseAddr, unsigned int tbCount)
  **/
 unsigned int EHRPWMReadTBCount(unsigned int baseAddr)
 {
-    return (unsigned int)(HWREGH(baseAddr + EHRPWM_TBCTR));
+    return (unsigned int)(REG16(baseAddr + EHRPWM_TBCTR));
 }
 
 
@@ -444,7 +444,7 @@ unsigned int EHRPWMReadTBCount(unsigned int baseAddr)
  **/
 unsigned int EHRPWMTBStatusGet(unsigned int baseAddr, unsigned int tbStatusMask)
 {
-    return (unsigned int)(HWREGH(baseAddr + EHRPWM_TBSTS) & tbStatusMask);
+    return (unsigned int)(REG16(baseAddr + EHRPWM_TBSTS) & tbStatusMask);
 }
 
 
@@ -461,7 +461,7 @@ unsigned int EHRPWMTBStatusGet(unsigned int baseAddr, unsigned int tbStatusMask)
  **/
 void EHRPWMTBClearStatus(unsigned int baseAddr, unsigned int tbStatusMask)
 {
-    HWREGH(baseAddr + EHRPWM_TBSTS) |= tbStatusMask &
+    REG16(baseAddr + EHRPWM_TBSTS) |= tbStatusMask &
         ((EHRPWM_TBSTS_CTRMAX << EHRPWM_TBSTS_CTRMAX_SHIFT)|
          (EHRPWM_TBSTS_SYNCI << EHRPWM_TBSTS_SYNCI_SHIFT));
 }
@@ -492,18 +492,18 @@ bool EHRPWMLoadCMPA(unsigned int baseAddr,
     bool status = FALSE;
 
     if((OverwriteShadowFull) ||
-        ((HWREGH(baseAddr+EHRPWM_CMPCTL) & EHRPWM_CMPCTL_SHDWAFULL) ==
+        ((REG16(baseAddr+EHRPWM_CMPCTL) & EHRPWM_CMPCTL_SHDWAFULL) ==
                              EHRPWM_SHADOW_A_EMPTY))
     {
-        HWREGH(baseAddr + EHRPWM_CMPCTL) = (HWREGH(baseAddr + EHRPWM_CMPCTL) &
+        REG16(baseAddr + EHRPWM_CMPCTL) = (REG16(baseAddr + EHRPWM_CMPCTL) &
             (~EHRPWM_CMPCTL_SHDWAMODE)) | ((enableShadowWrite <<
             EHRPWM_CMPCTL_SHDWAMODE_SHIFT) & EHRPWM_CMPCTL_SHDWAMODE);
 
-        HWREGH(baseAddr + EHRPWM_CMPCTL) = (HWREGH(baseAddr + EHRPWM_CMPCTL) &
+        REG16(baseAddr + EHRPWM_CMPCTL) = (REG16(baseAddr + EHRPWM_CMPCTL) &
             (~EHRPWM_COMPA_LOAD_MASK)) |((ShadowToActiveLoadTrigger <<
             EHRPWM_CMPCTL_LOADAMODE_SHIFT) & EHRPWM_COMPA_LOAD_MASK);
 
-        HWREGH(baseAddr + EHRPWM_CMPA) = CMPAVal & EHRPWM_CMPA_CMPA;
+        REG16(baseAddr + EHRPWM_CMPA) = CMPAVal & EHRPWM_CMPA_CMPA;
 
         status = TRUE;
     }
@@ -537,18 +537,18 @@ bool EHRPWMLoadCMPB(unsigned int baseAddr,
     bool status = FALSE;
 
     if((OverwriteShadowFull) ||
-        ((HWREGH(baseAddr+EHRPWM_CMPCTL) & EHRPWM_CMPCTL_SHDWBFULL) ==
+        ((REG16(baseAddr+EHRPWM_CMPCTL) & EHRPWM_CMPCTL_SHDWBFULL) ==
                              EHRPWM_SHADOW_B_EMPTY))
     {
-        HWREGH(baseAddr + EHRPWM_CMPCTL) = (HWREGH(baseAddr + EHRPWM_CMPCTL)
+        REG16(baseAddr + EHRPWM_CMPCTL) = (REG16(baseAddr + EHRPWM_CMPCTL)
             & (~EHRPWM_CMPCTL_SHDWBMODE)) | ((enableShadowWrite <<
             EHRPWM_CMPCTL_SHDWBMODE_SHIFT) & EHRPWM_CMPCTL_SHDWBMODE);
 
-        HWREGH(baseAddr + EHRPWM_CMPCTL) = (HWREGH(baseAddr + EHRPWM_CMPCTL) &
+        REG16(baseAddr + EHRPWM_CMPCTL) = (REG16(baseAddr + EHRPWM_CMPCTL) &
             (~EHRPWM_COMPB_LOAD_MASK)) | ((ShadowToActiveLoadTrigger <<
             EHRPWM_CMPCTL_LOADBMODE_SHIFT) & EHRPWM_COMPB_LOAD_MASK);
 
-        HWREGH(baseAddr + EHRPWM_CMPB) = CMPBVal & EHRPWM_CMPB_CMPB;
+        REG16(baseAddr + EHRPWM_CMPB) = CMPBVal & EHRPWM_CMPB_CMPB;
 
         status = TRUE;
     }
@@ -587,7 +587,7 @@ void EHRPWMConfigureAQActionOnA(unsigned int baseAddr,
                                 unsigned int CBDown,
                                 unsigned int SWForced)
 {
-    HWREGH(baseAddr + EHRPWM_AQCTLA) =
+    REG16(baseAddr + EHRPWM_AQCTLA) =
         ((CBDown << EHRPWM_AQCTLA_CBD_SHIFT) & EHRPWM_AQCTLA_CBD) |
         ((CBUp << EHRPWM_AQCTLA_CBU_SHIFT) & EHRPWM_AQCTLA_CBU) |
         ((CADown << EHRPWM_AQCTLA_CAD_SHIFT) & EHRPWM_AQCTLA_CAD) |
@@ -596,7 +596,7 @@ void EHRPWMConfigureAQActionOnA(unsigned int baseAddr,
         ((zero << EHRPWM_AQCTLA_ZRO_SHIFT) & EHRPWM_AQCTLA_ZRO);
 
 
-    HWREGH(baseAddr + EHRPWM_AQSFRC) = (HWREGH(baseAddr + EHRPWM_AQSFRC) &
+    REG16(baseAddr + EHRPWM_AQSFRC) = (REG16(baseAddr + EHRPWM_AQSFRC) &
             (~EHRPWM_AQSFRC_ACTSFA)) | ((SWForced <<
             EHRPWM_AQSFRC_ACTSFA_SHIFT) & EHRPWM_AQSFRC_ACTSFA);
 }
@@ -633,7 +633,7 @@ void EHRPWMConfigureAQActionOnB(unsigned int baseAddr,
                                 unsigned int CBDown,
                                 unsigned int SWForced)
 {
-    HWREGH(baseAddr + EHRPWM_AQCTLB) =
+    REG16(baseAddr + EHRPWM_AQCTLB) =
         ((CBDown << EHRPWM_AQCTLB_CBD_SHIFT) & EHRPWM_AQCTLB_CBD) |
         ((CBUp << EHRPWM_AQCTLB_CBU_SHIFT) & EHRPWM_AQCTLB_CBU) |
         ((CADown << EHRPWM_AQCTLB_CAD_SHIFT) & EHRPWM_AQCTLB_CAD) |
@@ -642,8 +642,8 @@ void EHRPWMConfigureAQActionOnB(unsigned int baseAddr,
         ((zero << EHRPWM_AQCTLB_ZRO_SHIFT) & EHRPWM_AQCTLB_ZRO);
 
 
-    HWREGH(baseAddr + EHRPWM_AQSFRC) =
-        (HWREGH(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_ACTSFB)) |
+    REG16(baseAddr + EHRPWM_AQSFRC) =
+        (REG16(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_ACTSFB)) |
      ((SWForced << EHRPWM_AQSFRC_ACTSFB_SHIFT) & EHRPWM_AQSFRC_ACTSFB);
 }
 
@@ -660,7 +660,7 @@ void EHRPWMConfigureAQActionOnB(unsigned int baseAddr,
  **/
 void EHRPWMSWForceA(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_AQSFRC) |= EHRPWM_AQSFRC_OTSFA;
+    REG16(baseAddr + EHRPWM_AQSFRC) |= EHRPWM_AQSFRC_OTSFA;
 }
 
 
@@ -676,7 +676,7 @@ void EHRPWMSWForceA(unsigned int baseAddr)
  **/
 void EHRPWMSWForceB(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_AQSFRC) |= EHRPWM_AQSFRC_OTSFB;
+    REG16(baseAddr + EHRPWM_AQSFRC) |= EHRPWM_AQSFRC_OTSFB;
 }
 
 
@@ -696,13 +696,13 @@ void EHRPWMAQContSWForceOnA(unsigned int baseAddr,
                             unsigned int forceVal,
                             unsigned int activeRegReloadMode)
 {
-    HWREGH(baseAddr + EHRPWM_AQSFRC) =
-        (HWREGH(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_RLDCSF)) |
+    REG16(baseAddr + EHRPWM_AQSFRC) =
+        (REG16(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_RLDCSF)) |
        ((activeRegReloadMode << EHRPWM_AQSFRC_RLDCSF_SHIFT) & EHRPWM_AQSFRC_RLDCSF);
 
 
-    HWREGH(baseAddr + EHRPWM_AQCSFRC) =
-        (HWREGH(baseAddr + EHRPWM_AQCSFRC) & (~EHRPWM_AQCSFRC_CSFA)) |
+    REG16(baseAddr + EHRPWM_AQCSFRC) =
+        (REG16(baseAddr + EHRPWM_AQCSFRC) & (~EHRPWM_AQCSFRC_CSFA)) |
        ((forceVal << EHRPWM_AQCSFRC_CSFA_SHIFT) & EHRPWM_AQCSFRC_CSFA);
 }
 
@@ -722,12 +722,12 @@ void EHRPWMAQContSWForceOnB(unsigned int baseAddr,
                             unsigned int forceVal,
                             unsigned int activeRegReloadMode)
 {
-    HWREGH(baseAddr + EHRPWM_AQSFRC) =
-        (HWREGH(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_RLDCSF)) |
+    REG16(baseAddr + EHRPWM_AQSFRC) =
+        (REG16(baseAddr + EHRPWM_AQSFRC) & (~EHRPWM_AQSFRC_RLDCSF)) |
     ((activeRegReloadMode << EHRPWM_AQSFRC_RLDCSF_SHIFT) & EHRPWM_AQSFRC_RLDCSF);
 
-    HWREGH(baseAddr + EHRPWM_AQCSFRC) =
-        (HWREGH(baseAddr + EHRPWM_AQCSFRC) & (~EHRPWM_AQCSFRC_CSFB)) |
+    REG16(baseAddr + EHRPWM_AQCSFRC) =
+        (REG16(baseAddr + EHRPWM_AQCSFRC) & (~EHRPWM_AQCSFRC_CSFB)) |
         ((forceVal << EHRPWM_AQCSFRC_CSFB_SHIFT) & EHRPWM_AQCSFRC_CSFB);
 }
 
@@ -752,8 +752,8 @@ void EHRPWMAQContSWForceOnB(unsigned int baseAddr,
 
 void EHRPWMDBSourceSelect(unsigned int baseAddr, unsigned int DBgenSource)
 {
-    HWREGH(baseAddr + EHRPWM_DBCTL) =
-        (HWREGH(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_IN_MODE)) |
+    REG16(baseAddr + EHRPWM_DBCTL) =
+        (REG16(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_IN_MODE)) |
         ((DBgenSource << EHRPWM_DBCTL_IN_MODE_SHIFT) & EHRPWM_DBCTL_IN_MODE);
 }
 
@@ -774,8 +774,8 @@ void EHRPWMDBSourceSelect(unsigned int baseAddr, unsigned int DBgenSource)
  **/
 void EHRPWMDBPolaritySelect(unsigned int baseAddr, unsigned int DBgenPol)
 {
-    HWREGH(baseAddr + EHRPWM_DBCTL) =
-        (HWREGH(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_POLSEL)) |
+    REG16(baseAddr + EHRPWM_DBCTL) =
+        (REG16(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_POLSEL)) |
        ((DBgenPol << EHRPWM_DBCTL_POLSEL_SHIFT) & EHRPWM_DBCTL_POLSEL);
 }
 
@@ -796,8 +796,8 @@ void EHRPWMDBPolaritySelect(unsigned int baseAddr, unsigned int DBgenPol)
  **/
 void EHRPWMDBOutput(unsigned int baseAddr, unsigned int DBgenOpMode)
 {
-    HWREGH(baseAddr + EHRPWM_DBCTL) =
-        (HWREGH(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_OUT_MODE)) |
+    REG16(baseAddr + EHRPWM_DBCTL) =
+        (REG16(baseAddr + EHRPWM_DBCTL) & (~EHRPWM_DBCTL_OUT_MODE)) |
        ((DBgenOpMode << EHRPWM_DBCTL_OUT_MODE_SHIFT) & EHRPWM_DBCTL_OUT_MODE);
 }
 
@@ -813,8 +813,8 @@ void EHRPWMDBOutput(unsigned int baseAddr, unsigned int DBgenOpMode)
  **/
 void EHRPWMDBConfigureRED(unsigned int baseAddr, unsigned int raisingEdgeDelay)
 {
-    HWREGH(baseAddr + EHRPWM_DBRED) =
-        (HWREGH(baseAddr + EHRPWM_DBRED) & (~EHRPWM_DBRED_DEL)) |
+    REG16(baseAddr + EHRPWM_DBRED) =
+        (REG16(baseAddr + EHRPWM_DBRED) & (~EHRPWM_DBRED_DEL)) |
         ((raisingEdgeDelay << EHRPWM_DBRED_DEL_SHIFT) & EHRPWM_DBRED_DEL);
 }
 
@@ -830,8 +830,8 @@ void EHRPWMDBConfigureRED(unsigned int baseAddr, unsigned int raisingEdgeDelay)
  **/
 void EHRPWMDBConfigureFED(unsigned int baseAddr, unsigned int fallingEdgeDelay)
 {
-    HWREGH(baseAddr + EHRPWM_DBFED) =
-        (HWREGH(baseAddr + EHRPWM_DBFED) & (~EHRPWM_DBFED_DEL)) |
+    REG16(baseAddr + EHRPWM_DBFED) =
+        (REG16(baseAddr + EHRPWM_DBFED) & (~EHRPWM_DBFED_DEL)) |
            ((fallingEdgeDelay << EHRPWM_DBFED_DEL_SHIFT) & EHRPWM_DBFED_DEL);
 }
 
@@ -857,8 +857,8 @@ void EHRPWMDBConfigureFED(unsigned int baseAddr, unsigned int fallingEdgeDelay)
  **/
 void EHRPWMConfigureChopperDuty(unsigned int baseAddr, unsigned int dutyCycle)
 {
-    HWREGH(baseAddr + EHRPWM_PCCTL) =
-        (HWREGH(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_CHPDUTY)) |
+    REG16(baseAddr + EHRPWM_PCCTL) =
+        (REG16(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_CHPDUTY)) |
        ((dutyCycle << EHRPWM_PCCTL_CHPDUTY_SHIFT) & EHRPWM_PCCTL_CHPDUTY);
 }
 
@@ -881,8 +881,8 @@ void EHRPWMConfigureChopperFreq(unsigned int baseAddr, unsigned int freqDiv)
        freqDiv =  EHRPWM_PCCTL_CHPFREQ_DIVBY8;
     }
 
-    HWREGH(baseAddr + EHRPWM_PCCTL) =
-        (HWREGH(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_CHPFREQ)) |
+    REG16(baseAddr + EHRPWM_PCCTL) =
+        (REG16(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_CHPFREQ)) |
         ((freqDiv << EHRPWM_PCCTL_CHPFREQ_SHIFT) & EHRPWM_PCCTL_CHPFREQ);
 }
 
@@ -902,8 +902,8 @@ void EHRPWMConfigureChopperFreq(unsigned int baseAddr, unsigned int freqDiv)
  **/
 void EHRPWMConfigureChopperOSPW(unsigned int baseAddr, unsigned int OSPWCycles)
 {
-    HWREGH(baseAddr + EHRPWM_PCCTL) =
-        (HWREGH(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_OSHTWTH)) |
+    REG16(baseAddr + EHRPWM_PCCTL) =
+        (REG16(baseAddr + EHRPWM_PCCTL) & (~EHRPWM_PCCTL_OSHTWTH)) |
        ((OSPWCycles << EHRPWM_PCCTL_OSHTWTH_SHIFT) & EHRPWM_PCCTL_OSHTWTH);
 }
 
@@ -919,7 +919,7 @@ void EHRPWMConfigureChopperOSPW(unsigned int baseAddr, unsigned int OSPWCycles)
 
 void EHRPWMChopperEnable(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_PCCTL) |= EHRPWM_PCCTL_CHPEN;
+    REG16(baseAddr + EHRPWM_PCCTL) |= EHRPWM_PCCTL_CHPEN;
 }
 
 
@@ -934,7 +934,7 @@ void EHRPWMChopperEnable(unsigned int baseAddr)
  **/
 void EHRPWMChopperDisable(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_PCCTL) &= (~EHRPWM_PCCTL_CHPEN);
+    REG16(baseAddr + EHRPWM_PCCTL) &= (~EHRPWM_PCCTL_CHPEN);
 }
 
 
@@ -953,11 +953,11 @@ void EHRPWMTZTripEventEnable(unsigned int baseAddr, boolean osht_CBC)
 {
      if(EHRPWM_TZ_ONESHOT == osht_CBC)
      {
-         HWREGH(baseAddr + EHRPWM_TZSEL) |= EHRPWM_TZSEL_OSHT1;
+         REG16(baseAddr + EHRPWM_TZSEL) |= EHRPWM_TZSEL_OSHT1;
      }
      if(EHRPWM_TZ_CYCLEBYCYCLE == osht_CBC)
      {
-         HWREGH(baseAddr + EHRPWM_TZSEL) |= EHRPWM_TZSEL_CBC1;
+         REG16(baseAddr + EHRPWM_TZSEL) |= EHRPWM_TZSEL_CBC1;
      }
 }
 
@@ -975,11 +975,11 @@ void EHRPWMTZTripEventDisable(unsigned int baseAddr, boolean osht_CBC)
 {
      if(EHRPWM_TZ_ONESHOT == osht_CBC)
      {
-         HWREGH(baseAddr + EHRPWM_TZSEL) &= (~EHRPWM_TZSEL_OSHT1);
+         REG16(baseAddr + EHRPWM_TZSEL) &= (~EHRPWM_TZSEL_OSHT1);
      }
      if(EHRPWM_TZ_CYCLEBYCYCLE == osht_CBC)
      {
-         HWREGH(baseAddr + EHRPWM_TZSEL) &= (~EHRPWM_TZSEL_CBC1);
+         REG16(baseAddr + EHRPWM_TZSEL) &= (~EHRPWM_TZSEL_CBC1);
      }
 }
 
@@ -996,8 +996,8 @@ void EHRPWMTZTripEventDisable(unsigned int baseAddr, boolean osht_CBC)
  **/
 void EHRPWMTZForceAOnTrip(unsigned int baseAddr, unsigned int opValue)
 {
-   HWREGH(baseAddr + EHRPWM_TZCTL) =
-       (HWREGH(baseAddr + EHRPWM_TZCTL) & (~EHRPWM_TZCTL_TZA)) |
+   REG16(baseAddr + EHRPWM_TZCTL) =
+       (REG16(baseAddr + EHRPWM_TZCTL) & (~EHRPWM_TZCTL_TZA)) |
        ((opValue << EHRPWM_TZCTL_TZA_SHIFT) & EHRPWM_TZCTL_TZA);
 }
 
@@ -1014,8 +1014,8 @@ void EHRPWMTZForceAOnTrip(unsigned int baseAddr, unsigned int opValue)
  **/
 void EHRPWMTZForceBOnTrip(unsigned int baseAddr, unsigned int opValue)
 {
-   HWREGH(baseAddr + EHRPWM_TZCTL) =
-       (HWREGH(baseAddr + EHRPWM_TZCTL) & (~EHRPWM_TZCTL_TZB)) |
+   REG16(baseAddr + EHRPWM_TZCTL) =
+       (REG16(baseAddr + EHRPWM_TZCTL) & (~EHRPWM_TZCTL_TZB)) |
        ((opValue << EHRPWM_TZCTL_TZB_SHIFT) & EHRPWM_TZCTL_TZB);
 }
 
@@ -1034,11 +1034,11 @@ void EHRPWMTZIntEnable(unsigned int baseAddr, boolean osht_CBC)
 {
     if(EHRPWM_TZ_ONESHOT == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZEINT) |= EHRPWM_TZEINT_OST;
+        REG16(baseAddr + EHRPWM_TZEINT) |= EHRPWM_TZEINT_OST;
     }
     if(EHRPWM_TZ_CYCLEBYCYCLE == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZEINT) |= EHRPWM_TZEINT_CBC;
+        REG16(baseAddr + EHRPWM_TZEINT) |= EHRPWM_TZEINT_CBC;
     }
 }
 
@@ -1056,11 +1056,11 @@ void EHRPWMTZIntDisable(unsigned int baseAddr, boolean osht_CBC)
 {
     if(EHRPWM_TZ_ONESHOT == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZEINT) &= (~EHRPWM_TZEINT_OST);
+        REG16(baseAddr + EHRPWM_TZEINT) &= (~EHRPWM_TZEINT_OST);
     }
     if(EHRPWM_TZ_CYCLEBYCYCLE == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZEINT) &= (~EHRPWM_TZEINT_CBC);
+        REG16(baseAddr + EHRPWM_TZEINT) &= (~EHRPWM_TZEINT_CBC);
     }
 }
 
@@ -1079,7 +1079,7 @@ void EHRPWMTZIntDisable(unsigned int baseAddr, boolean osht_CBC)
  **/
 unsigned int EHRPWMTZFlagGet(unsigned int baseAddr, unsigned int flagToRead)
 {
-    return (unsigned int)(HWREGH(baseAddr + EHRPWM_TZFLG) & flagToRead);
+    return (unsigned int)(REG16(baseAddr + EHRPWM_TZFLG) & flagToRead);
 }
 
 
@@ -1098,7 +1098,7 @@ unsigned int EHRPWMTZFlagGet(unsigned int baseAddr, unsigned int flagToRead)
  **/
 void EHRPWMTZFlagClear(unsigned int baseAddr, unsigned int flagToClear)
 {
-    HWREGH(baseAddr + EHRPWM_TZCLR) = flagToClear &
+    REG16(baseAddr + EHRPWM_TZCLR) = flagToClear &
         (EHRPWM_TZCLR_OST | EHRPWM_TZCLR_CBC | EHRPWM_TZCLR_INT);
 }
 
@@ -1116,11 +1116,11 @@ void EHRPWMTZSWFrcEvent(unsigned int baseAddr, boolean osht_CBC)
 {
     if(EHRPWM_TZ_ONESHOT == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZFRC) = EHRPWM_TZFRC_OST;
+        REG16(baseAddr + EHRPWM_TZFRC) = EHRPWM_TZFRC_OST;
     }
     if(EHRPWM_TZ_CYCLEBYCYCLE == osht_CBC)
     {
-        HWREGH(baseAddr + EHRPWM_TZFRC) = EHRPWM_TZFRC_CBC;
+        REG16(baseAddr + EHRPWM_TZFRC) = EHRPWM_TZFRC_CBC;
     }
 }
 
@@ -1135,7 +1135,7 @@ void EHRPWMTZSWFrcEvent(unsigned int baseAddr, boolean osht_CBC)
  **/
 void EHRPWMETIntDisable(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_ETSEL) &= (~EHRPWM_ETSEL_INTEN);
+    REG16(baseAddr + EHRPWM_ETSEL) &= (~EHRPWM_ETSEL_INTEN);
 }
 
 
@@ -1149,7 +1149,7 @@ void EHRPWMETIntDisable(unsigned int baseAddr)
  **/
 void EHRPWMETIntEnable(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_ETSEL) |= EHRPWM_ETSEL_INTEN;
+    REG16(baseAddr + EHRPWM_ETSEL) |= EHRPWM_ETSEL_INTEN;
 }
 
 
@@ -1170,8 +1170,8 @@ void EHRPWMETIntEnable(unsigned int baseAddr)
  **/
 void EHRPWMETIntSourceSelect(unsigned int baseAddr, unsigned int selectInt)
 {
-    HWREGH(baseAddr + EHRPWM_ETSEL) =
-        (HWREGH(baseAddr + EHRPWM_ETSEL) & (~EHRPWM_ETSEL_INTSEL)) |
+    REG16(baseAddr + EHRPWM_ETSEL) =
+        (REG16(baseAddr + EHRPWM_ETSEL) & (~EHRPWM_ETSEL_INTSEL)) |
        ((selectInt << EHRPWM_ETSEL_INTSEL_SHIFT) & EHRPWM_ETSEL_INTSEL);
 }
 
@@ -1187,8 +1187,8 @@ void EHRPWMETIntSourceSelect(unsigned int baseAddr, unsigned int selectInt)
  **/
 void EHRPWMETIntPrescale(unsigned int baseAddr, unsigned int prescale)
 {
-    HWREGH(baseAddr + EHRPWM_ETPS) =
-        (HWREGH(baseAddr + EHRPWM_ETPS) & (~EHRPWM_ETPS_INTPRD)) |
+    REG16(baseAddr + EHRPWM_ETPS) =
+        (REG16(baseAddr + EHRPWM_ETPS) & (~EHRPWM_ETPS_INTPRD)) |
        ((prescale << EHRPWM_ETPS_INTPRD_SHIFT) & EHRPWM_ETPS_INTPRD);
 }
 
@@ -1203,7 +1203,7 @@ void EHRPWMETIntPrescale(unsigned int baseAddr, unsigned int prescale)
  **/
 bool EHRPWMETEventCount(unsigned int baseAddr)
 {
-    return (bool)((HWREGH(baseAddr + EHRPWM_ETPS) & EHRPWM_ETPS_INTCNT) >>
+    return (bool)((REG16(baseAddr + EHRPWM_ETPS) & EHRPWM_ETPS_INTCNT) >>
                 EHRPWM_ETPS_INTCNT_SHIFT);
 }
 
@@ -1218,7 +1218,7 @@ bool EHRPWMETEventCount(unsigned int baseAddr)
  **/
 bool EHRPWMETIntStatus(unsigned int baseAddr)
 {
-    return (bool)((HWREGH(baseAddr + EHRPWM_ETFLG) & EHRPWM_ETFLG_INT) >>
+    return (bool)((REG16(baseAddr + EHRPWM_ETFLG) & EHRPWM_ETFLG_INT) >>
                 EHRPWM_ETFLG_INT_SHIFT);
 }
 
@@ -1234,7 +1234,7 @@ bool EHRPWMETIntStatus(unsigned int baseAddr)
 
 void EHRPWMETIntClear(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_ETCLR) |= EHRPWM_ETCLR_INT;
+    REG16(baseAddr + EHRPWM_ETCLR) |= EHRPWM_ETCLR_INT;
 }
 
 
@@ -1248,7 +1248,7 @@ void EHRPWMETIntClear(unsigned int baseAddr)
  **/
 void EHRPWMETIntSWForce(unsigned int baseAddr)
 {
-    HWREGH(baseAddr + EHRPWM_ETFRC) |= EHRPWM_ETFRC_INT;
+    REG16(baseAddr + EHRPWM_ETFRC) |= EHRPWM_ETFRC_INT;
 }
 
 
@@ -1264,8 +1264,8 @@ void EHRPWMETIntSWForce(unsigned int baseAddr)
 
 void EHRPWMLoadTBPHSHR(unsigned int baseAddr, unsigned int TBPHSHRVal)
 {
-    HWREGH(baseAddr + EHRPWM_TBPHSHR) =
-        (HWREGH(baseAddr + EHRPWM_TBPHSHR) & (~EHRPWM_TBPHSHR_TBPHSHR)) |
+    REG16(baseAddr + EHRPWM_TBPHSHR) =
+        (REG16(baseAddr + EHRPWM_TBPHSHR) & (~EHRPWM_TBPHSHR_TBPHSHR)) |
         ((TBPHSHRVal << EHRPWM_TBPHSHR_TBPHSHR_SHIFT) & EHRPWM_TBPHSHR_TBPHSHR);
 }
 
@@ -1285,12 +1285,12 @@ void EHRPWMLoadCMPAHR(unsigned int baseAddr,
                       unsigned int CMPAHRVal,
                       unsigned int ShadowToActiveLoadTrigger)
 {
-    HWREGH(baseAddr + EHRPWM_CMPAHR) =
-        (HWREGH(baseAddr + EHRPWM_CMPAHR) & (~EHRPWM_CMPAHR_CMPAHR)) |
+    REG16(baseAddr + EHRPWM_CMPAHR) =
+        (REG16(baseAddr + EHRPWM_CMPAHR) & (~EHRPWM_CMPAHR_CMPAHR)) |
         ((CMPAHRVal << EHRPWM_CMPAHR_CMPAHR_SHIFT) & EHRPWM_CMPAHR_CMPAHR);
 
-    HWREGH(baseAddr + EHRPWM_HRCNFG) =
-        (HWREGH(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_HRLOAD)) |
+    REG16(baseAddr + EHRPWM_HRCNFG) =
+        (REG16(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_HRLOAD)) |
         ((ShadowToActiveLoadTrigger << EHRPWM_HR_HRLOAD_SHIFT) & EHRPWM_HR_HRLOAD);
 }
 
@@ -1310,12 +1310,12 @@ void EHRPWMConfigHR(unsigned int baseAddr,
                     unsigned int ctrlMode,
                     unsigned int MEPCtrlEdge)
 {
-    HWREGH(baseAddr + EHRPWM_HRCNFG) =
-        (HWREGH(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_CTLMODE)) |
+    REG16(baseAddr + EHRPWM_HRCNFG) =
+        (REG16(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_CTLMODE)) |
         ((ctrlMode << EHRPWM_HR_CTLMODE_SHIFT) & EHRPWM_HR_CTLMODE);
 
-    HWREGH(baseAddr + EHRPWM_HRCNFG) =
-        (HWREGH(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_EDGEMODE)) |
+    REG16(baseAddr + EHRPWM_HRCNFG) =
+        (REG16(baseAddr + EHRPWM_HRCNFG) & (~EHRPWM_HR_EDGEMODE)) |
         ((MEPCtrlEdge << EHRPWM_HR_EDGEMODE_SHIFT) & EHRPWM_HR_EDGEMODE);
 }
 
@@ -1330,7 +1330,7 @@ void EHRPWMConfigHR(unsigned int baseAddr,
  **/
 void EHRPWMHRDisable(unsigned int baseAddr)
 {
-     HWREGH(baseAddr + EHRPWM_HRCNFG) &= (~EHRPWM_HR_EDGEMODE);
+     REG16(baseAddr + EHRPWM_HRCNFG) &= (~EHRPWM_HR_EDGEMODE);
 }
 
 /**
@@ -1343,7 +1343,7 @@ void EHRPWMHRDisable(unsigned int baseAddr)
  **/
 void EHRPWMClockEnable(unsigned int baseAdd)
 {
-    HWREG(baseAdd + PWMSS_CLOCK_CONFIG) |= PWMSS_EHRPWM_CLK_EN_ACK;
+    REG(baseAdd + PWMSS_CLOCK_CONFIG) |= PWMSS_EHRPWM_CLK_EN_ACK;
 }
 
 /**
@@ -1356,7 +1356,7 @@ void EHRPWMClockEnable(unsigned int baseAdd)
  **/
 void EHRPWMClockDisable(unsigned int baseAdd)
 {
-    HWREG(baseAdd + PWMSS_CLOCK_CONFIG) |= PWMSS_EHRPWM_CLK_STOP_ACK;
+    REG(baseAdd + PWMSS_CLOCK_CONFIG) |= PWMSS_EHRPWM_CLK_STOP_ACK;
 }
 
 /**
@@ -1372,7 +1372,7 @@ unsigned int EHRPWMClockEnableStatusGet(unsigned int baseAdd)
 {
     unsigned int status;
 
-    status = HWREG(baseAdd + PWMSS_CLOCK_STATUS);
+    status = REG(baseAdd + PWMSS_CLOCK_STATUS);
 
     status = status << PWMSS_EHRPWM_CLK_EN_ACK_SHIFT;
 
@@ -1392,7 +1392,7 @@ unsigned int EHRPWMClockDisableStatusGet(unsigned int baseAdd)
 {
     unsigned int status;
 
-    status = HWREG(baseAdd + PWMSS_CLOCK_STATUS);
+    status = REG(baseAdd + PWMSS_CLOCK_STATUS);
 
     status = status << PWMSS_EHRPWM_CLK_STOP_ACK_SHIFT;
 
