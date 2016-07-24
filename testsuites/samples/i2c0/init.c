@@ -10,6 +10,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <rtems/test.h>
@@ -42,7 +43,7 @@ rtems_task Init(
 #define CONFIGURE_APPLICATION_NEEDS_CONSOLE_DRIVER
 
 #define CONFIGURE_MAXIMUM_TASKS            1
-#define CONFIGURE_USE_DEVFS_AS_BASE_FILESYSTEM
+#define CONFIGURE_FILESYSTEM_IMFS
 
 #define CONFIGURE_MAXIMUM_SEMAPHORES    1
 
